@@ -162,6 +162,9 @@ export default async function PaymentsPage() {
 										<th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
 											Details
 										</th>
+										<th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+											Subscription
+										</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-gray-100">
@@ -207,6 +210,11 @@ export default async function PaymentsPage() {
 												) : (
 													<div className="text-xs text-gray-500">—</div>
 												)}
+											</td>
+											<td className="px-6 py-4 whitespace-nowrap">
+												<Link href={"/dashboard/subscriptions/" + payment.subscription_id} className="text-sm font-semibold text-blue-500">
+													View
+												</Link>
 											</td>
 										</tr>
 									))}

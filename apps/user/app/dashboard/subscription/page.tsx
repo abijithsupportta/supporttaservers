@@ -225,6 +225,12 @@ export default async function SubscriptionPage() {
 						</h3>
 						<div className="space-y-3">
 							<Link
+								href="/dashboard/subscriptions"
+								className="block text-blue-600 hover:text-blue-700 font-medium"
+							>
+								→ All Subscriptions
+							</Link>
+							<Link
 								href="/dashboard/payments"
 								className="block text-blue-600 hover:text-blue-700 font-medium"
 							>
