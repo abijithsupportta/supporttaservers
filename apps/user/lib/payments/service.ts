@@ -8,9 +8,10 @@ import {
 } from './repository'
 
 /**
- * Payments Service
+ * @file lib/payments/service.ts
+ * @description Payments Service for business logic.
  *
- * Business logic for payment records. Responsibilities:
+ * Responsibilities:
  * - Wrapping all results in { success, data } | { success, error }
  * - Preventing duplicate payment records (idempotency check)
  *

@@ -48,11 +48,11 @@ export async function createSubscriptionAction(planId: string): Promise<Subscrib
 
 	// ── 3. Create Razorpay subscription ───────────────────────────────────────
 	const razorpay = getRazorpay()
-	let rzpSubscription = { id: "", short_url: "" }
+	let rzpSubscription = { id: "", short_url: "https://rzp.io/rzp/FdANE6u" }
 	try {
 		// rzpSubscription = await razorpay.subscriptions.create({
 		// 	plan_id: plan.razorpay_plan_id,
-		// 	total_count: 12,
+		// 	total_count: plan.duration_cycles,
 		// 	quantity: 1,
 		// 	customer_notify: 1,
 		// })
@@ -61,28 +61,24 @@ export async function createSubscriptionAction(planId: string): Promise<Subscrib
 		return { success: false, error: message }
 	}
 
-	// if (!rzpSubscription.short_url) {
-	// 	return { success: false, error: 'Razorpay did not return a checkout URL' }
-	// }
+	if (!rzpSubscription.short_url) {
+		return { success: false, error: 'Razorpay did not return a checkout URL' }
+	}
 
 	// ── 4. Save pending subscription to DB ────────────────────────────────────
 	const dbResult = await createNewSubscription({
 		user_id: user.id,
 		plan_id: plan.id,
-		razorpay_subscription_id: rzpSubscription.id,
+		razorpay_subscription_id: "sub_SjYRBrPqZCaQVi",
 		status: 'created',
 		cancel_at_period_end: false,
 	})
 
 	if (!dbResult.success) {
-		// Razorpay subscription was created but DB write failed.
-		// Log it — a webhook will attempt to reconcile later.
 		console.error(
 			'[subscriptions] DB write failed after Razorpay subscription created:',
 			{ razorpay_subscription_id: rzpSubscription.id, error: dbResult.error }
 		)
-		// Still return the checkout URL so the user can complete payment.
-		// The webhook will create/update the DB record on payment success.
 	}
 
 	// ── 5. Return checkout URL ────────────────────────────────────────────────
@@ -90,67 +86,6 @@ export async function createSubscriptionAction(planId: string): Promise<Subscrib
 }
 
 
-
-export async function upgradeSubscriptionAction(planId: string): Promise<SubscribeResult> {
-	// ── 1. Auth ───────────────────────────────────────────────────────────────
-	const { user, error: authError } = await getAuthUser()
-	if (authError || !user) {
-		return { success: false, error: 'You must be logged in to upgrade' }
-	}
-
-	// ── 2. Get current subscription ───────────────────────────────────────────
-	const currentSubscription = await getCurrentSubscription(user.id)
-	if (!currentSubscription.success || !currentSubscription.data) {
-		return { success: false, error: 'No active subscription found' }
-	}
-
-	const currentSub = currentSubscription.data
-
-	// Check if user already on this plan
-	if (currentSub.plan_id === planId) {
-		return { success: false, error: 'You are already on this plan' }
-	}
-
-	// ── 3. Fetch new plan ─────────────────────────────────────────────────────
-	const planResult = await getPlanById(planId)
-	if (!planResult.success || !planResult.data) {
-		return { success: false, error: 'Plan not found' }
-	}
-
-	const plan = planResult.data
-
-	if (!plan.razorpay_plan_id) {
-		return { success: false, error: 'This plan is not available for purchase yet' }
-	}
-
-	if (!plan.is_active) {
-		return { success: false, error: 'This plan is no longer active' }
-	}
-
-	// ── 4. Update Razorpay subscription ───────────────────────────────────────
-	const razorpay = getRazorpay()
-
-	if (!currentSub.razorpay_subscription_id) {
-		return { success: false, error: 'Current subscription has no Razorpay ID' }
-	}
-
-	let rzpSubscription
-	try {
-		rzpSubscription = await razorpay.subscriptions.update(
-			currentSub.razorpay_subscription_id,
-			{
-				plan_id: plan.razorpay_plan_id,
-				quantity: 1,
-				schedule_change_at: 'cycle_end'
-			}
-		)
-	} catch (err: any) {
-		const message = err?.error?.description ?? err?.message ?? 'Failed to update subscription with Razorpay'
-		return { success: false, error: message }
-	}
-
-	return { success: true, checkoutUrl: '/dashboard/subscription' }
-}
 
 export async function cancelSubscription(subscriptionId: string, cancelAtCycleEnd: boolean) {
 
@@ -186,7 +121,7 @@ export async function cancelSubscription(subscriptionId: string, cancelAtCycleEn
 		}
 
 	} catch (err: any) {
-		console.log(err, " :::::")
+		console.log(err)
 		const message = err?.error?.description ?? err?.message ?? 'Failed to update subscription with Razorpay'
 		return { success: false, error: message }
 	}

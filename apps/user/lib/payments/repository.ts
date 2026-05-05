@@ -3,7 +3,8 @@ import { createClient } from '@workspace/supabase/server'
 import type { TablesInsert } from '@workspace/database'
 
 /**
- * Payments Repository
+ * @file lib/payments/repository.ts
+ * @description Payments Repository with raw Supabase access.
  *
  * Raw Supabase access for the `payments` table.
  * Uses supabaseAdmin (service role) because payments are written exclusively

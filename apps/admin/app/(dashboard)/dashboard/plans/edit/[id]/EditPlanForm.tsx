@@ -28,28 +28,19 @@ import { useRouter } from 'next/navigation';
 import { useUpdatePlan, PlanActionError } from '../../../../../../lib/plans/hooks';
 import { useState } from 'react'
 import { CircleMinus, Plus } from 'lucide-react';
+import type { Tables } from '@workspace/database';
 
-/** Shape of the pre-populated default values passed from the server */
-interface DefaultValues {
-	/** Plan name */
-	name: string;
-	/** Plan amount in ₹ (displayed in the form, converted to paise on save) */
-	amount: string;
-	/** Billing interval (daily, weekly, monthly, yearly) */
-	interval: string;
-	/** Optional Razorpay plan ID */
-	razorpay_plan_id: string;
-	/** Whether the plan is visible to customers */
-	is_active: boolean;
-	features: string[] | null
-}
+
 
 /** Props passed from the EditPlanPage server component */
 interface EditPlanFormProps {
 	/** Supabase plan ID (UUID) */
 	id: string;
 	/** Pre-populated form values fetched from the database */
-	defaultValues: DefaultValues;
+	defaultValues: Omit<Tables<'plan'>, 'id' | 'created_at' | 'amount' | 'razorpay_plan_id'> & {
+		amount: string;
+		razorpay_plan_id: string;
+	};
 }
 
 /**
@@ -110,13 +101,14 @@ export default function EditPlanForm({ id, defaultValues }: EditPlanFormProps) {
 							{fieldErrors.name && <p className="text-xs text-red-500 mt-1">{fieldErrors.name}</p>}
 						</div>
 
-						<div className="grid grid-cols-2 gap-4">
+						<div className="grid grid-cols-3 gap-4">
 							<div>
 								<label className="block text-sm font-medium text-slate-700 mb-1">Amount (in ₹)</label>
 								<input
 									name="amount"
 									type="number"
 									required
+									readOnly
 									min="1"
 									step="0.01"
 									defaultValue={defaultValues.amount}
@@ -139,6 +131,20 @@ export default function EditPlanForm({ id, defaultValues }: EditPlanFormProps) {
 								</select>
 								{fieldErrors.interval && <p className="text-xs text-red-500 mt-1">{fieldErrors.interval}</p>}
 							</div>
+							<div>
+								<label className="block text-sm font-medium text-slate-700 mb-1">Duration</label>
+								<input
+									name="duration"
+									type="number"
+									required
+									min="1"
+									step="1"
+									defaultValue={defaultValues.duration_cycles}
+									placeholder="12"
+									className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+								/>
+								{fieldErrors.duration && <p className="text-xs text-red-500 mt-1">{fieldErrors.duration}</p>}
+							</div>
 						</div>
 
 						<div>
@@ -146,7 +152,7 @@ export default function EditPlanForm({ id, defaultValues }: EditPlanFormProps) {
 							<input
 								name="razorpay_plan_id"
 								type="text"
-								defaultValue={defaultValues.razorpay_plan_id}
+								defaultValue={defaultValues.razorpay_plan_id || ""}
 								placeholder="plan_K9v..."
 								className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
 							/>

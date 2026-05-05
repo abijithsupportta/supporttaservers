@@ -15,7 +15,6 @@
 
 import Logout from '@workspace/ui/my-components/Logout';
 import { headers } from 'next/headers';
-import Link from 'next/link';
 import NavItem from '../../../components/NavItem';
 
 /**

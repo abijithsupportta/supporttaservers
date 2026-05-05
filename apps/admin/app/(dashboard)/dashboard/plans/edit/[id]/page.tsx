@@ -47,7 +47,8 @@ export default async function EditPlanPage({ params }: { params: Promise<{ id: s
 					interval: plan.interval,
 					razorpay_plan_id: plan.razorpay_plan_id ?? '',
 					is_active: plan.is_active,
-					features: plan.features
+					features: plan.features,
+					duration_cycles: plan.duration_cycles
 				}}
 			/>
 		</div>

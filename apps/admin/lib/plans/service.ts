@@ -78,7 +78,8 @@ export async function createPlan(input: CreatePlanInput) {
 		interval: input.interval,
 		razorpay_plan_id: razorpayPlanId,
 		is_active: input.is_active ?? true,
-		features: input.features
+		features: input.features,
+		duration_cycles: input.duration
 	})
 	if (error) return { success: false as const, error: error.message }
 	return { success: true as const, data }
@@ -93,6 +94,7 @@ export async function updatePlan(input: UpdatePlanInput) {
 		...(fields.razorpay_plan_id !== undefined && { razorpay_plan_id: fields.razorpay_plan_id ?? null }),
 		...(fields.is_active !== undefined && { is_active: fields.is_active }),
 		...(fields.features?.length !== 0 && { features: fields.features }),
+		...(fields.duration !== undefined && { duration_cycles: fields.duration }),
 
 	})
 	console.log(fields.is_active !== undefined && { is_active: fields.is_active })

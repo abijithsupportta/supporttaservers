@@ -1,3 +1,7 @@
+/**
+ * @file components/DashboardNav.tsx
+ * @description Navigation sidebar component for the user dashboard.
+ */
 "use client"
 
 import Link from "next/link"

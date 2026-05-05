@@ -125,7 +125,8 @@ export async function POST(req: NextRequest) {
 						amount: payment.amount,
 						currency: payment.currency || 'INR',
 						status: payment.status || 'captured',
-						paid_at: new Date().toISOString()
+						paid_at: new Date().toISOString(),
+						razorpay_signature: signature
 					})
 				}
 
@@ -186,7 +187,8 @@ export async function POST(req: NextRequest) {
 					amount: payment.amount,
 					currency: payment.currency || 'INR',
 					status: payment.status || 'captured',
-					paid_at: new Date().toISOString()
+					paid_at: new Date().toISOString(),
+					razorpay_signature: signature
 				})
 
 
@@ -422,7 +424,8 @@ export async function POST(req: NextRequest) {
 							amount: payment.amount,
 							currency: payment.currency || 'INR',
 							status: 'failed',
-							paid_at: new Date().toISOString()
+							paid_at: new Date().toISOString(),
+							razorpay_signature: signature
 						})
 					}
 				}

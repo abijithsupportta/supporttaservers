@@ -7,7 +7,8 @@
 	"exports": {
 		".": "./index.ts",
 		"./react": "./src/react.tsx",
-		"./format": "./src/format.ts"
+		"./format": "./src/format.ts",
+		"./styles": "./src/styles.ts"
 	},
 	"dependencies": {
 		"react": "^19.2.4"

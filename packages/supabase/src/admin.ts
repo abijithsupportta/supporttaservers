@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
 /**
- * Supabase Admin Client — server-side only, never use in client components.
+ * @file packages/supabase/src/admin.ts
+ * @description Supabase Admin Client for server-side operations.
  *
  * Uses the secret key (service role) which bypasses Row Level Security.
  * Intended for:

@@ -1,11 +1,9 @@
 /**
  * @file app/dashboard/layout.tsx
- * @description Persistent shell for all /dashboard/* routes.
+ * @description Layout component for the dashboard section.
  *
- * Architecture:
- * DashboardLayout (Server Component)
- *   ├── Sidebar: App branding and DashboardNav
- *   └── Main Content: Topbar (Avatar & Logout) + {children}
+ * Provides the sidebar navigation and topbar with user profile/logout
+ * for all dashboard routes.
  */
 import { getAuthUser } from "../../lib/auth/server"
 import Logout from "@workspace/ui/my-components/Logout"

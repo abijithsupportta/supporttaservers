@@ -86,7 +86,7 @@ export default async function DashboardPage() {
 
 			<div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
 				{plans && plans.map((plan) => (
-					<PlanCard plan={plan} key={plan.id} />
+					<PlanCard plan={plan} key={plan.id} isCurrent={subResult.success && plan.id === subResult.data?.plan.id} />
 				))}
 			</div>
 		</main>

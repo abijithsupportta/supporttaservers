@@ -1,3 +1,7 @@
+/**
+ * @file components/CancelSubscription.tsx
+ * @description Button component with a confirmation dialog to cancel an active subscription.
+ */
 "use client"
 
 import { useState } from "react"

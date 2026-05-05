@@ -1,5 +1,13 @@
 'use server'
 
+/**
+ * @file lib/users/actions.ts
+ * @description Server actions for user profile management.
+ *
+ * Handles profile updates from the client, validates input,
+ * updates the database via the user service, and revalidates cached data.
+ */
+
 import { revalidatePath } from 'next/cache'
 import { updateProfileSchema } from '@workspace/validations'
 import { updateUser } from './service'

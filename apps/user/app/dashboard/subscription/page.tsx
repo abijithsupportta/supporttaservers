@@ -15,6 +15,7 @@ import { getCurrentSubscription } from '../../../lib/subscriptions/service'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import CancelSubscriptionButton from '../../../components/CancelSubscription'
+import { statusColors } from "@workspace/utils/styles"
 
 export default async function SubscriptionPage() {
 	const { user } = await getAuthUser()
@@ -97,15 +98,6 @@ export default async function SubscriptionPage() {
 		: 'N/A'
 
 	// Status badge color
-	const statusColors: Record<string, string> = {
-		active: 'bg-green-100 text-green-700',
-		pending: 'bg-yellow-100 text-yellow-700',
-		cancelled: 'bg-red-100 text-red-700',
-		failed: 'bg-red-100 text-red-700',
-		completed: 'bg-gray-100 text-gray-700',
-		paused: 'bg-orange-100 text-orange-700',
-		created: 'bg-blue-100 text-blue-700',
-	}
 
 	return (
 		<main className="max-w-7xl mx-auto px-6 py-12">
@@ -169,7 +161,7 @@ export default async function SubscriptionPage() {
 							</div>
 						)}
 
-						{!subscription.cancel_at_period_end ? (
+						{subscription.cancel_at_period_end ? (
 							<div className="bg-orange-50 border border-orange-200 rounded-xl p-6 text-center">
 								<p className="text-sm font-semibold text-orange-800 mb-2">
 									⚠️ Cancellation Scheduled

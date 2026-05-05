@@ -1,3 +1,10 @@
+/**
+ * @file app/dashboard/orders/[id]/page.tsx
+ * @description Order details page — displays detailed information for a specific order.
+ *
+ * Server Component. Fetches order details by ID and verifies ownership.
+ * Displays payment information and associated plan data.
+ */
 import { getAuthUser } from '../../../../lib/auth/server'
 import { getOrderById } from '../../../../lib/orders/service'
 import { getPlanById } from '../../../../lib/plans/service'
