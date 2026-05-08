@@ -6,6 +6,7 @@ import { updateUserRoleAdmin } from "../../../../lib/users/service"
 import type { TablesInsert } from "@workspace/database"
 import { createPayment } from "../../../../lib/payments/service"
 import { createOrder } from "../../../../lib/orders/service"
+import { createInvoice } from "../../../../lib/invoices/service"
 import { validateWebhookSignature } from "razorpay/dist/utils/razorpay-utils"
 
 /**
@@ -51,25 +52,25 @@ export async function POST(req: NextRequest) {
 
 		console.log(`\n\n[webhook] Received: ${eventName} (id: ${eventId})`)
 
-		try {
-			const eventsFilePath = path.join(process.cwd(), 'events.json')
-			let eventsData: Record<string, any[]> = {}
-			if (fs.existsSync(eventsFilePath)) {
-				const fileContent = fs.readFileSync(eventsFilePath, 'utf-8')
-				if (fileContent) {
-					eventsData = JSON.parse(fileContent)
-				}
-			}
+		// try {
+		// 	const eventsFilePath = path.join(process.cwd(), 'events.json')
+		// 	let eventsData: Record<string, any[]> = {}
+		// 	if (fs.existsSync(eventsFilePath)) {
+		// 		const fileContent = fs.readFileSync(eventsFilePath, 'utf-8')
+		// 		if (fileContent) {
+		// 			eventsData = JSON.parse(fileContent)
+		// 		}
+		// 	}
 
-			if (!Array.isArray(eventsData[eventName])) {
-				eventsData[eventName] = []
-			}
-			eventsData[eventName].push(event)
+		// 	if (!Array.isArray(eventsData[eventName])) {
+		// 		eventsData[eventName] = []
+		// 	}
+		// 	eventsData[eventName].push(event)
 
-			fs.writeFileSync(eventsFilePath, JSON.stringify(eventsData, null, 2))
-		} catch (fsError) {
-			console.error("[webhook] Failed to save event to events.json", fsError)
-		}
+		// 	fs.writeFileSync(eventsFilePath, JSON.stringify(eventsData, null, 2))
+		// } catch (fsError) {
+		// 	console.error("[webhook] Failed to save event to events.json", fsError)
+		// }
 
 		// ── 4. Handle events ──────────────────────────────────────────────────────
 		switch (eventName) {
@@ -429,6 +430,53 @@ export async function POST(req: NextRequest) {
 						})
 					}
 				}
+
+				break
+			}
+
+			// ── Invoice: paid ────────────────────────────────────────────────────
+			// Fires when a Razorpay invoice is paid (typically for subscription renewals).
+			// Creates an invoice record linked to the order for billing history.
+			case "invoice.paid": {
+				const invoice = event.payload.invoice.entity
+				const payment = event.payload.payment?.entity
+
+				console.log("[webhook] invoice.paid:", {
+					id: invoice.id,
+					invoice_number: invoice.invoice_number ?? null,
+					order_id: invoice.order_id ?? null,
+					subscription_id: invoice.subscription_id ?? null,
+					amount: invoice.amount,
+
+					currency: invoice.currency,
+				})
+
+				// Resolve the user_id via the subscription
+				const razorpaySubId = invoice.subscription_id
+				if (!razorpaySubId) {
+					console.warn("[webhook] invoice.paid: no subscription_id on invoice, skipping")
+					break
+				}
+
+				const userSubscription = await getSubscriptionByRazorpayId(razorpaySubId)
+				if (!userSubscription.success || !userSubscription.data) {
+					console.error("[webhook] invoice.paid: subscription not found for:", razorpaySubId)
+					throw new Error("Subscription not found for invoice")
+				}
+
+				await createInvoice({
+					user_id: userSubscription.data.user_id,
+					razorpay_invoice_id: invoice.id,
+					razorpay_order_id: invoice.order_id,
+					amount_paise: invoice.amount,
+					currency: invoice.currency ?? 'INR',
+					invoice_number: invoice.invoice_number ?? null,
+					razorpay_payment_id: payment.id,
+					billing_snapshot: {
+						invoice: invoice,
+						payment: payment ?? null,
+					},
+				})
 
 				break
 			}

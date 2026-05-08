@@ -1,0 +1,7 @@
+{
+	"buildCommand": "cd ../.. && npx turbo run build --filter=admin",
+	"devCommand": "cd ../.. && npx turbo run dev --filter=admin",
+	"installCommand": "cd ../.. && npm install",
+	"framework": null,
+	"outputDirectory": ".next"
+}

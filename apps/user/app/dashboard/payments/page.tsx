@@ -1,21 +1,16 @@
 /**
  * @file app/dashboard/payments/page.tsx
  * @description Payment history page — displays all payment records for the user.
- *
- * Server Component. Fetches all payments associated with the user's subscriptions
- * and displays them in a table format with:
- * - Payment date and time
- * - Amount and currency
- * - Status (captured, failed, pending)
- * - Razorpay payment ID
- * - Failure reason (if applicable)
- *
- * Protected by middleware — unauthenticated users are redirected to /login.
  */
 import { getAuthUser } from '../../../lib/auth/server'
 import { getPaymentsByUserId } from '../../../lib/payments/service'
+import { getInvoicesByUserId } from '../../../lib/invoices/service'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import type { Tables } from '@workspace/database'
+import { DownloadInvoiceButton } from '../../../components/DownloadInvoiceButton'
+
+type Invoice = Tables<'invoices'>
 
 export default async function PaymentsPage() {
 	const { user } = await getAuthUser()
@@ -24,21 +19,34 @@ export default async function PaymentsPage() {
 		redirect('/login')
 	}
 
-	const result = await getPaymentsByUserId(user.id)
+	// Fetch payments and invoices in parallel
+	const [paymentsResult, invoicesResult] = await Promise.all([
+		getPaymentsByUserId(user.id),
+		getInvoicesByUserId(user.id),
+	])
 
-	// Handle error state
-	if (!result.success) {
+	if (!paymentsResult.success) {
 		return (
 			<main className="max-w-7xl mx-auto px-6 py-12">
 				<div className="p-6 bg-red-50 border border-red-200 rounded-lg text-red-600">
 					<p className="font-semibold">Error loading payments</p>
-					<p className="text-sm">{result.error}</p>
+					<p className="text-sm">{paymentsResult.error}</p>
 				</div>
 			</main>
 		)
 	}
 
-	const payments = result.data
+	const payments = paymentsResult.data
+
+	// Build a map: razorpay_order_id → invoice
+	// In the webhook, invoice.razorpay_order_id is set to payment.id (the Razorpay payment ID)
+	const invoiceByPaymentId = new Map<string, Invoice>()
+	if (invoicesResult.success) {
+		for (const inv of invoicesResult.data) {
+			invoiceByPaymentId.set(inv.razorpay_payment_id, inv)
+		}
+	}
+
 
 	// Status badge colors
 	const statusColors: Record<string, string> = {
@@ -48,17 +56,14 @@ export default async function PaymentsPage() {
 		refunded: 'bg-gray-100 text-gray-700',
 	}
 
-	// Format currency
 	const formatAmount = (amount: number, currency: string | null) => {
 		const symbol = currency === 'INR' ? '₹' : currency || '₹'
 		return `${symbol}${(amount / 100).toLocaleString()}`
 	}
 
-	// Format date
 	const formatDate = (dateString: string | null) => {
 		if (!dateString) return 'N/A'
-		const date = new Date(dateString)
-		return date.toLocaleDateString('en-US', {
+		return new Date(dateString).toLocaleDateString('en-US', {
 			year: 'numeric',
 			month: 'short',
 			day: 'numeric',
@@ -67,8 +72,7 @@ export default async function PaymentsPage() {
 
 	const formatDateTime = (dateString: string | null) => {
 		if (!dateString) return 'N/A'
-		const date = new Date(dateString)
-		return date.toLocaleString('en-US', {
+		return new Date(dateString).toLocaleString('en-US', {
 			year: 'numeric',
 			month: 'short',
 			day: 'numeric',
@@ -106,15 +110,12 @@ export default async function PaymentsPage() {
 				<>
 					{/* Summary Cards */}
 					<div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-						{/* Total Payments */}
 						<div className="bg-white shadow-xl rounded-2xl p-6 border border-gray-100">
 							<p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">
 								Total Payments
 							</p>
 							<p className="text-3xl font-bold text-gray-900">{payments.length}</p>
 						</div>
-
-						{/* Successful Payments */}
 						<div className="bg-white shadow-xl rounded-2xl p-6 border border-gray-100">
 							<p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">
 								Successful
@@ -123,8 +124,6 @@ export default async function PaymentsPage() {
 								{payments.filter((p) => p.status === 'captured').length}
 							</p>
 						</div>
-
-						{/* Total Amount Paid */}
 						<div className="bg-white shadow-xl rounded-2xl p-6 border border-gray-100">
 							<p className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">
 								Total Paid
@@ -165,101 +164,134 @@ export default async function PaymentsPage() {
 										<th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
 											Subscription
 										</th>
+										<th className="px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+											Invoice
+										</th>
 									</tr>
 								</thead>
 								<tbody className="divide-y divide-gray-100">
-									{payments.map((payment) => (
-										<tr key={payment.id} className="hover:bg-gray-50 transition-colors">
-											<td className="px-6 py-4 whitespace-nowrap">
-												<div className="text-sm text-gray-900">
-													{formatDate(payment.paid_at || payment.created_at)}
-												</div>
-												<div className="text-xs text-gray-500">
-													{new Date(payment.paid_at || payment.created_at || '').toLocaleTimeString(
-														'en-US',
-														{
-															hour: '2-digit',
-															minute: '2-digit',
-														}
+									{payments.map((payment) => {
+										const invoice = payment.razorpay_payment_id
+											? invoiceByPaymentId.get(payment.razorpay_payment_id)
+											: undefined
+										console.log(payment.razorpay_payment_id, " <<")
+										console.log(invoiceByPaymentId.entries(), " <<")
+										return (
+											<tr key={payment.id} className="hover:bg-gray-50 transition-colors">
+												<td className="px-6 py-4 whitespace-nowrap">
+													<div className="text-sm text-gray-900">
+														{formatDate(payment.paid_at || payment.created_at)}
+													</div>
+													<div className="text-xs text-gray-500">
+														{new Date(payment.paid_at || payment.created_at || '').toLocaleTimeString(
+															'en-US',
+															{ hour: '2-digit', minute: '2-digit' }
+														)}
+													</div>
+												</td>
+												<td className="px-6 py-4">
+													<div className="text-sm font-mono text-gray-900">
+														{payment.razorpay_payment_id || 'N/A'}
+													</div>
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													<div className="text-sm font-semibold text-gray-900">
+														{formatAmount(payment.amount, payment.currency)}
+													</div>
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													<span
+														className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${statusColors[payment.status || 'pending'] || statusColors.pending}`}
+													>
+														{payment.status === 'captured' ? 'paid' : payment.status || 'pending'}
+													</span>
+												</td>
+												<td className="px-6 py-4">
+													{payment.status === 'failed' && payment.failure_reason ? (
+														<div className="text-xs text-red-600">{payment.failure_reason}</div>
+													) : payment.status === 'captured' ? (
+														<div className="text-xs text-green-600">Payment successful</div>
+													) : (
+														<div className="text-xs text-gray-500">—</div>
 													)}
-												</div>
-											</td>
-											<td className="px-6 py-4">
-												<div className="text-sm font-mono text-gray-900">
-													{payment.razorpay_payment_id || 'N/A'}
-												</div>
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap">
-												<div className="text-sm font-semibold text-gray-900">
-													{formatAmount(payment.amount, payment.currency)}
-												</div>
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap">
-												<span
-													className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${statusColors[payment.status || 'pending'] || statusColors.pending
-														}`}
-												>
-													{(payment.status === "captured" ? "paid" : payment.status) || 'pending'}
-												</span>
-											</td>
-											<td className="px-6 py-4">
-												{payment.status === 'failed' && payment.failure_reason ? (
-													<div className="text-xs text-red-600">{payment.failure_reason}</div>
-												) : payment.status === 'captured' ? (
-													<div className="text-xs text-green-600">Payment successful</div>
-												) : (
-													<div className="text-xs text-gray-500">—</div>
-												)}
-											</td>
-											<td className="px-6 py-4 whitespace-nowrap">
-												<Link href={"/dashboard/subscriptions/" + payment.subscription_id} className="text-sm font-semibold text-blue-500">
-													View
-												</Link>
-											</td>
-										</tr>
-									))}
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													<Link
+														href={'/dashboard/subscriptions/' + payment.subscription_id}
+														className="text-sm font-semibold text-blue-500 hover:text-blue-700"
+													>
+														View
+													</Link>
+												</td>
+												<td className="px-6 py-4 whitespace-nowrap">
+													{invoice ? (
+														<DownloadInvoiceButton
+															invoiceId={invoice.id}
+															invoiceNumber={invoice.invoice_number}
+														/>
+													) : (
+														<span className="text-xs text-gray-400">—</span>
+													)}
+												</td>
+											</tr>
+										)
+									})}
 								</tbody>
 							</table>
 						</div>
 
 						{/* Mobile Cards */}
 						<div className="md:hidden divide-y divide-gray-100">
-							{payments.map((payment) => (
-								<div key={payment.id} className="p-6">
-									<div className="flex items-start justify-between mb-4">
-										<div>
-											<p className="text-sm font-semibold text-gray-900">
-												{formatAmount(payment.amount, payment.currency)}
-											</p>
-											<p className="text-xs text-gray-500 mt-1">
-												{formatDateTime(payment.paid_at || payment.created_at)}
-											</p>
-										</div>
-										<span
-											className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${statusColors[payment.status || 'pending'] || statusColors.pending
-												}`}
-										>
-											{payment.status || 'pending'}
-										</span>
-									</div>
+							{payments.map((payment) => {
+								const invoice = payment.razorpay_payment_id
+									? invoiceByPaymentId.get(payment.razorpay_payment_id)
+									: undefined
 
-									<div className="space-y-2">
-										<div>
-											<p className="text-xs text-gray-500">Payment ID</p>
-											<p className="text-sm font-mono text-gray-900">
-												{payment.razorpay_payment_id || 'N/A'}
-											</p>
-										</div>
-
-										{payment.status === 'failed' && payment.failure_reason && (
+								return (
+									<div key={payment.id} className="p-6">
+										<div className="flex items-start justify-between mb-4">
 											<div>
-												<p className="text-xs text-gray-500">Failure Reason</p>
-												<p className="text-sm text-red-600">{payment.failure_reason}</p>
+												<p className="text-sm font-semibold text-gray-900">
+													{formatAmount(payment.amount, payment.currency)}
+												</p>
+												<p className="text-xs text-gray-500 mt-1">
+													{formatDateTime(payment.paid_at || payment.created_at)}
+												</p>
 											</div>
-										)}
+											<span
+												className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${statusColors[payment.status || 'pending'] || statusColors.pending}`}
+											>
+												{payment.status === 'captured' ? 'paid' : payment.status || 'pending'}
+											</span>
+										</div>
+
+										<div className="space-y-2">
+											<div>
+												<p className="text-xs text-gray-500">Payment ID</p>
+												<p className="text-sm font-mono text-gray-900">
+													{payment.razorpay_payment_id || 'N/A'}
+												</p>
+											</div>
+
+											{payment.status === 'failed' && payment.failure_reason && (
+												<div>
+													<p className="text-xs text-gray-500">Failure Reason</p>
+													<p className="text-sm text-red-600">{payment.failure_reason}</p>
+												</div>
+											)}
+
+											{invoice && (
+												<div className="pt-2">
+													<DownloadInvoiceButton
+														invoiceId={invoice.id}
+														invoiceNumber={invoice.invoice_number}
+													/>
+												</div>
+											)}
+										</div>
 									</div>
-								</div>
-							))}
+								)
+							})}
 						</div>
 					</div>
 

@@ -48,55 +48,99 @@ export default async function OrdersTable({ limit, userId }: OrdersTableProps) {
 	const orders = result.data
 	console.log(orders)
 	return (
-		<div className="overflow-x-auto mt-4 bg-white rounded-xl border border-gray-200">
-			<table className="w-full text-left border-collapse">
-				<thead>
-					<tr className="bg-gray-50 border-b border-gray-200">
-						<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Order ID</th>
-						<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
-						<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
-						<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-						<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-					</tr>
-				</thead>
-				<tbody className="divide-y divide-gray-100">
-					{orders.map((order) => (
-						<tr key={order.id} className="hover:bg-gray-50 transition-colors">
-							<td className="px-6 py-4 text-sm font-mono text-gray-600">
-								#{order.id.slice(0, 8)}
-							</td>
-							<td className="px-6 py-4">
+		<div className="mt-4 bg-white rounded-xl border border-gray-200 overflow-hidden">
+			{/* Desktop Table View */}
+			<div className="hidden md:block overflow-x-auto">
+				<table className="w-full text-left border-collapse">
+					<thead>
+						<tr className="bg-gray-50 border-b border-gray-200">
+							<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Order ID</th>
+							<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
+							<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Amount</th>
+							<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+							<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
+						</tr>
+					</thead>
+					<tbody className="divide-y divide-gray-100">
+						{orders.map((order) => (
+							<tr key={order.id} className="hover:bg-gray-50 transition-colors">
+								<td className="px-6 py-4 text-sm font-mono text-gray-600">
+									#{order.id.slice(0, 8)}
+								</td>
+								<td className="px-6 py-4">
+									<div className="text-sm font-medium text-gray-900">
+										{order.user?.full_name ?? '—'}
+									</div>
+									<div className="text-xs text-gray-500">
+										{order.user?.email ?? '—'}
+									</div>
+								</td>
+								<td className="px-6 py-4 text-sm font-semibold text-gray-900">
+									₹{(order.amount_paise / 100).toLocaleString('en-IN')}
+								</td>
+								<td className="px-6 py-4">
+									<span className={`px-2.5 py-1 rounded-full text-xs font-medium ${order.status === 'active'
+										? 'bg-emerald-50 text-emerald-700'
+										: order.status === 'cancelled'
+											? 'bg-red-50 text-red-700'
+											: 'bg-amber-50 text-amber-700'
+										}`}>
+										{order.status}
+									</span>
+								</td>
+								<td className="px-6 py-4 text-sm text-gray-500">
+									{new Date(order.created_at).toLocaleDateString('en-IN', {
+										day: 'numeric',
+										month: 'short',
+										year: 'numeric',
+									})}
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+
+			{/* Mobile Card View */}
+			<div className="md:hidden divide-y divide-gray-100">
+				{orders.map((order) => (
+					<div key={order.id} className="p-4 hover:bg-gray-50 transition-colors">
+						<div className="flex justify-between items-start mb-2">
+							<div>
+								<div className="text-xs font-mono text-gray-500 mb-1">
+									#{order.id.slice(0, 8)}
+								</div>
 								<div className="text-sm font-medium text-gray-900">
 									{order.user?.full_name ?? '—'}
 								</div>
 								<div className="text-xs text-gray-500">
 									{order.user?.email ?? '—'}
 								</div>
-							</td>
-							<td className="px-6 py-4 text-sm font-semibold text-gray-900">
+							</div>
+							<span className={`px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap ${order.status === 'active'
+								? 'bg-emerald-50 text-emerald-700'
+								: order.status === 'cancelled'
+									? 'bg-red-50 text-red-700'
+									: 'bg-amber-50 text-amber-700'
+								}`}>
+								{order.status}
+							</span>
+						</div>
+						<div className="flex justify-between items-center mt-3 pt-3 border-t border-gray-100">
+							<div className="text-sm font-semibold text-gray-900">
 								₹{(order.amount_paise / 100).toLocaleString('en-IN')}
-							</td>
-							<td className="px-6 py-4">
-								<span className={`px-2.5 py-1 rounded-full text-xs font-medium ${order.status === 'active'
-									? 'bg-emerald-50 text-emerald-700'
-									: order.status === 'cancelled'
-										? 'bg-red-50 text-red-700'
-										: 'bg-amber-50 text-amber-700'
-									}`}>
-									{order.status}
-								</span>
-							</td>
-							<td className="px-6 py-4 text-sm text-gray-500">
+							</div>
+							<div className="text-xs text-gray-500">
 								{new Date(order.created_at).toLocaleDateString('en-IN', {
 									day: 'numeric',
 									month: 'short',
 									year: 'numeric',
 								})}
-							</td>
-						</tr>
-					))}
-				</tbody>
-			</table>
+							</div>
+						</div>
+					</div>
+				))}
+			</div>
 
 			{orders.length === 0 && (
 				<div className="p-12 text-center">

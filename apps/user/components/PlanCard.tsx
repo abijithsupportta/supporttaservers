@@ -10,6 +10,7 @@ import { createSubscriptionAction } from '../lib/subscriptions/actions'
 import type { Plan } from '../lib/plans/service'
 import { Check } from 'lucide-react'
 import { SubscriptionConfirmDialog } from './SubscriptionConfirmDialog'
+import { openRazorpayCheckout } from '../lib/razorpay/subscription-handler'
 
 interface PlanCardProps {
 	plan: Plan
@@ -26,16 +27,38 @@ const PlanCard = ({ plan, isCurrent, }: PlanCardProps) => {
 
 	const handleConfirm = async () => {
 		setLoading(true)
+		setShowDialog(false)
+
 		try {
+			// Create subscription in backend
 			const result = await createSubscriptionAction(plan.id)
+
 			if (!result.success) {
 				toast.error(result.error)
 				setLoading(false)
 				return
 			}
-			// Redirect to Razorpay hosted checkout
-			window.location.href = result.checkoutUrl
-		} catch {
+
+			// Open Razorpay checkout
+			const success = await openRazorpayCheckout({
+				subscriptionId: result.data.subscriptionId,
+				planName: plan.name,
+				interval: result.data.interval || "",
+				onSuccess: () => {
+					// Checkout opened successfully
+					console.log('Razorpay checkout opened')
+				},
+				onFailure: (error) => {
+					console.error('Razorpay checkout failed:', error)
+					setLoading(false)
+				},
+			})
+
+			if (!success) {
+				setLoading(false)
+			}
+		} catch (error) {
+			console.error('Subscription error:', error)
 			toast.error('Something went wrong. Please try again.')
 			setLoading(false)
 		}
@@ -53,7 +76,7 @@ const PlanCard = ({ plan, isCurrent, }: PlanCardProps) => {
 		if (loading) return 'Redirecting...'
 		if (!plan.is_active) return 'Unavailable'
 		if (isCurrent) return 'Current Plan'
-		return 'Get Started'
+		return 'Buy Plan'
 	}
 
 	return (

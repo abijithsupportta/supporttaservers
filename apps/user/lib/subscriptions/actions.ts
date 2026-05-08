@@ -19,7 +19,7 @@ import { getAuthUser } from '../auth/server'
  * A webhook (to be wired up) will update it to 'active' once payment completes.
  */
 export type SubscribeResult =
-	| { success: true; checkoutUrl: string }
+	| { success: true; data: { checkoutUrl: string, subscriptionId: string, interval?: string } }
 	| { success: false; error: string }
 
 export async function createSubscriptionAction(planId: string): Promise<SubscribeResult> {
@@ -48,14 +48,16 @@ export async function createSubscriptionAction(planId: string): Promise<Subscrib
 
 	// ── 3. Create Razorpay subscription ───────────────────────────────────────
 	const razorpay = getRazorpay()
-	let rzpSubscription = { id: "", short_url: "https://rzp.io/rzp/FdANE6u" }
+	let rzpSubscription = {
+		short_url: "", id: ""
+	}
 	try {
-		// rzpSubscription = await razorpay.subscriptions.create({
-		// 	plan_id: plan.razorpay_plan_id,
-		// 	total_count: plan.duration_cycles,
-		// 	quantity: 1,
-		// 	customer_notify: 1,
-		// })
+		rzpSubscription = await razorpay.subscriptions.create({
+			plan_id: plan.razorpay_plan_id,
+			total_count: plan.duration_cycles,
+			quantity: 1,
+			customer_notify: 1,
+		})
 	} catch (err: any) {
 		const message = err?.error?.description ?? err?.message ?? 'Failed to create subscription with Razorpay'
 		return { success: false, error: message }
@@ -69,7 +71,7 @@ export async function createSubscriptionAction(planId: string): Promise<Subscrib
 	const dbResult = await createNewSubscription({
 		user_id: user.id,
 		plan_id: plan.id,
-		razorpay_subscription_id: "sub_SjYRBrPqZCaQVi",
+		razorpay_subscription_id: rzpSubscription.id,
 		status: 'created',
 		cancel_at_period_end: false,
 	})
@@ -82,7 +84,14 @@ export async function createSubscriptionAction(planId: string): Promise<Subscrib
 	}
 
 	// ── 5. Return checkout URL ────────────────────────────────────────────────
-	return { success: true, checkoutUrl: rzpSubscription.short_url }
+	return {
+		success: true, data: {
+			checkoutUrl:
+				rzpSubscription.short_url,
+			subscriptionId: rzpSubscription.id,
+			interval: plan.interval
+		}
+	}
 }
 
 
