@@ -9,6 +9,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import type { Tables } from '@workspace/database'
 import { DownloadInvoiceButton } from '../../../components/DownloadInvoiceButton'
+import { formatAmount } from '@workspace/utils'
 
 type Invoice = Tables<'invoices'>
 
@@ -56,10 +57,7 @@ export default async function PaymentsPage() {
 		refunded: 'bg-gray-100 text-gray-700',
 	}
 
-	const formatAmount = (amount: number, currency: string | null) => {
-		const symbol = currency === 'INR' ? '₹' : currency || '₹'
-		return `${symbol}${(amount / 100).toLocaleString()}`
-	}
+
 
 	const formatDate = (dateString: string | null) => {
 		if (!dateString) return 'N/A'
@@ -174,8 +172,6 @@ export default async function PaymentsPage() {
 										const invoice = payment.razorpay_payment_id
 											? invoiceByPaymentId.get(payment.razorpay_payment_id)
 											: undefined
-										console.log(payment.razorpay_payment_id, " <<")
-										console.log(invoiceByPaymentId.entries(), " <<")
 										return (
 											<tr key={payment.id} className="hover:bg-gray-50 transition-colors">
 												<td className="px-6 py-4 whitespace-nowrap">

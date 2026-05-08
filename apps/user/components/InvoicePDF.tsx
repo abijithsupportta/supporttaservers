@@ -6,6 +6,7 @@
 
 import {
 	Document,
+	Font,
 	Page,
 	Text,
 	View,
@@ -22,9 +23,23 @@ interface InvoicePDFProps {
 	userEmail: string
 }
 
+Font.register({
+	family: 'Roboto',
+	fonts: [
+		{
+			src: 'https://fonts.gstatic.com/s/roboto/v32/KFOmCnqEu92Fr1Me5Q.ttf',
+			fontWeight: 'normal',
+		},
+		{
+			src: 'https://fonts.gstatic.com/s/roboto/v32/KFOlCnqEu92Fr1MmEU9vAw.ttf',
+			fontWeight: 'bold',
+		},
+	],
+})
+
 const styles = StyleSheet.create({
 	page: {
-		fontFamily: 'Helvetica',
+		fontFamily: 'Roboto',
 		fontSize: 10,
 		color: '#111827',
 		paddingTop: 48,
@@ -42,12 +57,14 @@ const styles = StyleSheet.create({
 	},
 	brandName: {
 		fontSize: 22,
-		fontFamily: 'Helvetica-Bold',
+		fontFamily: 'Roboto',
+		fontWeight: 'bold',
 		color: '#1d4ed8',
 	},
 	invoiceLabel: {
 		fontSize: 22,
-		fontFamily: 'Helvetica-Bold',
+		fontFamily: 'Roboto',
+		fontWeight: 'bold',
 		color: '#111827',
 		textAlign: 'right',
 	},
@@ -76,7 +93,8 @@ const styles = StyleSheet.create({
 	},
 	metaLabel: {
 		fontSize: 9,
-		fontFamily: 'Helvetica-Bold',
+		fontFamily: 'Roboto',
+		fontWeight: 'bold',
 		color: '#6b7280',
 		textTransform: 'uppercase',
 		letterSpacing: 0.8,
@@ -117,7 +135,8 @@ const styles = StyleSheet.create({
 	colAmount: { flex: 1, textAlign: 'right' },
 	tableHeaderText: {
 		fontSize: 9,
-		fontFamily: 'Helvetica-Bold',
+		fontFamily: 'Roboto',
+		fontWeight: 'bold',
 		color: '#6b7280',
 		textTransform: 'uppercase',
 		letterSpacing: 0.6,
@@ -162,7 +181,8 @@ const styles = StyleSheet.create({
 	},
 	grandTotalLabel: {
 		fontSize: 11,
-		fontFamily: 'Helvetica-Bold',
+		fontFamily: 'Roboto',
+		fontWeight: 'bold',
 		color: '#111827',
 		flex: 1,
 		textAlign: 'right',
@@ -170,7 +190,8 @@ const styles = StyleSheet.create({
 	},
 	grandTotalValue: {
 		fontSize: 11,
-		fontFamily: 'Helvetica-Bold',
+		fontFamily: 'Roboto',
+		fontWeight: 'bold',
 		color: '#1d4ed8',
 		width: 80,
 		textAlign: 'right',
@@ -187,7 +208,8 @@ const styles = StyleSheet.create({
 	},
 	statusText: {
 		fontSize: 9,
-		fontFamily: 'Helvetica-Bold',
+		fontFamily: 'Roboto',
+		fontWeight: 'bold',
 		color: '#16a34a',
 		textTransform: 'uppercase',
 		letterSpacing: 0.6,
@@ -210,7 +232,6 @@ const styles = StyleSheet.create({
 		color: '#9ca3af',
 	},
 })
-
 
 
 
