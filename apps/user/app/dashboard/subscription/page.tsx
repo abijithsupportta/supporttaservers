@@ -16,6 +16,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import CancelSubscriptionButton from '../../../components/CancelSubscription'
 import { statusColors } from "@workspace/utils/styles"
+import { formatDateLong } from '@workspace/utils'
 
 export default async function SubscriptionPage() {
 	const { user } = await getAuthUser()
@@ -82,19 +83,11 @@ export default async function SubscriptionPage() {
 
 	// Format dates
 	const periodStart = subscription.current_period_start
-		? new Date(subscription.current_period_start).toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric',
-		})
+		? formatDateLong(subscription.current_period_start)
 		: 'N/A'
 
 	const periodEnd = subscription.current_period_end
-		? new Date(subscription.current_period_end).toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric',
-		})
+		? formatDateLong(subscription.current_period_end)
 		: 'N/A'
 
 	// Status badge color
@@ -208,11 +201,7 @@ export default async function SubscriptionPage() {
 							<div>
 								<p className="text-xs text-gray-500 mb-1">Started On</p>
 								<p className="text-gray-900 font-medium">
-									{new Date(subscription.created_at).toLocaleDateString('en-US', {
-										year: 'numeric',
-										month: 'long',
-										day: 'numeric',
-									})}
+									{formatDateLong(subscription.created_at)}
 								</p>
 							</div>
 						</div>

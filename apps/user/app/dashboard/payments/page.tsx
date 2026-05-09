@@ -9,7 +9,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import type { Tables } from '@workspace/database'
 import { DownloadInvoiceButton } from '../../../components/DownloadInvoiceButton'
-import { formatAmount } from '@workspace/utils'
+import { formatAmount, formatDate, formatDateTime, formatTimeFromDate } from '@workspace/utils'
 
 type Invoice = Tables<'invoices'>
 
@@ -59,25 +59,9 @@ export default async function PaymentsPage() {
 
 
 
-	const formatDate = (dateString: string | null) => {
-		if (!dateString) return 'N/A'
-		return new Date(dateString).toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-		})
-	}
 
-	const formatDateTime = (dateString: string | null) => {
-		if (!dateString) return 'N/A'
-		return new Date(dateString).toLocaleString('en-US', {
-			year: 'numeric',
-			month: 'short',
-			day: 'numeric',
-			hour: '2-digit',
-			minute: '2-digit',
-		})
-	}
+
+
 
 	return (
 		<main className="max-w-7xl mx-auto px-6 py-12">
@@ -179,10 +163,7 @@ export default async function PaymentsPage() {
 														{formatDate(payment.paid_at || payment.created_at)}
 													</div>
 													<div className="text-xs text-gray-500">
-														{new Date(payment.paid_at || payment.created_at || '').toLocaleTimeString(
-															'en-US',
-															{ hour: '2-digit', minute: '2-digit' }
-														)}
+														{formatTimeFromDate(payment.paid_at || payment.created_at)}
 													</div>
 												</td>
 												<td className="px-6 py-4">

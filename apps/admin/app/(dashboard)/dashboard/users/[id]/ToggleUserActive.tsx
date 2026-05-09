@@ -57,7 +57,6 @@ export default function ToggleUserActive({ userId, isActive }: ToggleUserActiveP
 	const handleToggle = () => {
 		mutate({ id: userId, isActive: !isActive });
 	};
-	console.log(isActive, "value we get")
 	// ─── Render ──────────────────────────────────────────────────
 	return (
 		<button

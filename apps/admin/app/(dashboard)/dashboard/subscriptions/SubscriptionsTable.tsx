@@ -15,6 +15,7 @@
  * Joins: profiles (full_name, email) + plan (name, amount, interval)
  */
 
+import { formatDate } from '@workspace/utils';
 import { getAllSubscriptions } from '../../../../lib/subscriptions/service';
 
 /**
@@ -72,11 +73,7 @@ export default async function SubscriptionsTable() {
 								</td>
 								<td className="px-6 py-4 text-sm text-gray-500">
 									{sub.current_period_end
-										? `Ends ${new Date(sub.current_period_end).toLocaleDateString('en-IN', {
-											day: 'numeric',
-											month: 'short',
-											year: 'numeric',
-										})}`
+										? `Ends ${formatDate(sub.current_period_end)}`
 										: '—'}
 								</td>
 								<td className="px-6 py-4">
@@ -127,11 +124,7 @@ export default async function SubscriptionsTable() {
 						</div>
 						<div className="text-xs text-gray-500 pt-3 border-t border-gray-100">
 							{sub.current_period_end
-								? `Ends ${new Date(sub.current_period_end).toLocaleDateString('en-IN', {
-									day: 'numeric',
-									month: 'short',
-									year: 'numeric',
-								})}`
+								? `Ends ${formatDate(sub.current_period_end)}`
 								: '—'}
 						</div>
 					</div>

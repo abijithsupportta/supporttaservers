@@ -16,6 +16,7 @@
  * Amount is displayed in ₹ (converted from paise ÷100).
  */
 
+import { formatDate } from '@workspace/utils';
 import { getPayments } from '../../../../lib/payments/service';
 
 /** Props for the PaymentsTable component */
@@ -102,11 +103,8 @@ export default async function PaymentsTable({ limit, userId }: PaymentsTableProp
 									</span>
 								</td>
 								<td className="px-6 py-4 text-sm text-gray-500">
-									{payment.paid_at ? new Date(payment.paid_at).toLocaleDateString('en-IN', {
-										day: 'numeric',
-										month: 'short',
-										year: 'numeric',
-									}) : '—'}
+
+									{payment.paid_at ? formatDate(payment.paid_at) : '—'}
 								</td>
 							</tr>
 						))}
@@ -154,11 +152,7 @@ export default async function PaymentsTable({ limit, userId }: PaymentsTableProp
 								₹{(payment.amount / 100).toLocaleString('en-IN')}
 							</div>
 							<div className="text-xs text-gray-500">
-								{payment.paid_at ? new Date(payment.paid_at).toLocaleDateString('en-IN', {
-									day: 'numeric',
-									month: 'short',
-									year: 'numeric',
-								}) : '—'}
+								{payment.paid_at ? formatDate(payment.paid_at) : '—'}
 							</div>
 						</div>
 					</div>

@@ -22,6 +22,7 @@ import Link from 'next/link';
 import DeletePlanButton from '../../../../../components/DeletePlan';
 import { getPlanById } from '../../../../../lib/plans/service';
 import { ArrowLeft, Calendar, Pen, SquareKanban } from 'lucide-react';
+import { formatDateLong } from '@workspace/utils';
 
 /**
  * PlanDetailPage — server component that fetches one plan by ID.
@@ -109,7 +110,7 @@ export default async function PlanDetailPage({
 
 							<div className="mt-10 pt-6 border-t border-slate-100 text-slate-500 flex items-center space-x-2">
 								<Calendar />
-								<span className="text-sm font-medium">Created on {new Date(plan.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+								<span className="text-sm font-medium">Created on {formatDateLong(plan.created_at)}</span>
 							</div>
 						</div>
 					</div>

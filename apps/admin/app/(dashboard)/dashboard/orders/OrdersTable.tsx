@@ -17,6 +17,7 @@
  */
 
 import { getOrders } from '../../../../lib/orders/service';
+import { formatDate } from "@workspace/utils"
 
 /** Props for the OrdersTable component */
 interface OrdersTableProps {
@@ -46,7 +47,6 @@ export default async function OrdersTable({ limit, userId }: OrdersTableProps) {
 	}
 
 	const orders = result.data
-	console.log(orders)
 	return (
 		<div className="mt-4 bg-white rounded-xl border border-gray-200 overflow-hidden">
 			{/* Desktop Table View */}
@@ -89,11 +89,8 @@ export default async function OrdersTable({ limit, userId }: OrdersTableProps) {
 									</span>
 								</td>
 								<td className="px-6 py-4 text-sm text-gray-500">
-									{new Date(order.created_at).toLocaleDateString('en-IN', {
-										day: 'numeric',
-										month: 'short',
-										year: 'numeric',
-									})}
+									{formatDate(order.created_at)}
+
 								</td>
 							</tr>
 						))}
@@ -131,11 +128,7 @@ export default async function OrdersTable({ limit, userId }: OrdersTableProps) {
 								₹{(order.amount_paise / 100).toLocaleString('en-IN')}
 							</div>
 							<div className="text-xs text-gray-500">
-								{new Date(order.created_at).toLocaleDateString('en-IN', {
-									day: 'numeric',
-									month: 'short',
-									year: 'numeric',
-								})}
+								{formatDate(order.created_at)}
 							</div>
 						</div>
 					</div>

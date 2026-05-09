@@ -22,6 +22,7 @@
 import Link from 'next/link';
 import { getUsersPaginated } from '../../../../lib/users/service';
 import UsersSearchInput from './UsersSearchInput';
+import { formatDate } from '@workspace/utils';
 
 /** Props passed from the parent page or query params */
 interface UsersTableProps {
@@ -108,11 +109,7 @@ export default async function UsersTable({ search = '', page = 1 }: UsersTablePr
 									</div>
 								</td>
 								<td className="px-6 py-4 text-sm text-gray-500 tabular-nums">
-									{new Date(profile.created_at).toLocaleDateString('en-IN', {
-										month: 'short',
-										day: 'numeric',
-										year: 'numeric',
-									})}
+									{formatDate(profile.created_at)}
 								</td>
 								<td className="px-6 py-4 text-right">
 									<Link
@@ -157,11 +154,7 @@ export default async function UsersTable({ search = '', page = 1 }: UsersTablePr
 						</div>
 						<div className="flex justify-between items-center pt-3 border-t border-gray-100">
 							<div className="text-xs text-gray-500">
-								Joined {new Date(profile.created_at).toLocaleDateString('en-IN', {
-									month: 'short',
-									day: 'numeric',
-									year: 'numeric',
-								})}
+								Joined {formatDate(profile.created_at)}
 							</div>
 							<Link
 								href={`/dashboard/users/${profile.id}`}

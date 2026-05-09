@@ -11,7 +11,7 @@ import { getPlanById } from '../../../../lib/plans/service'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Package, CreditCard } from 'lucide-react'
-import { formatAmount } from '@workspace/utils'
+import { formatAmount, formatDateTime } from '@workspace/utils'
 import { getStatusIcon } from '@workspace/utils/react'
 
 export default async function OrderDetailsPage(props: { params: Promise<{ id: string }> }) {
@@ -97,10 +97,8 @@ export default async function OrderDetailsPage(props: { params: Promise<{ id: st
 
 						<div>
 							<p className="text-sm text-gray-500">Created At</p>
-							<p className="text-md text-gray-800">
-								{new Date((order as any).created_at).toLocaleString('en-US', {
-									year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'
-								})}
+							<p className="text-sm text-gray-800 ">
+								{formatDateTime(order.created_at)}
 							</p>
 						</div>
 					</div>

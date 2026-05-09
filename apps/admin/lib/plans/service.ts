@@ -97,7 +97,6 @@ export async function updatePlan(input: UpdatePlanInput) {
 		...(fields.duration !== undefined && { duration_cycles: fields.duration }),
 
 	})
-	console.log(fields.is_active !== undefined && { is_active: fields.is_active })
 	if (error) return { success: false as const, error: error.message }
 	return { success: true as const, data }
 }
