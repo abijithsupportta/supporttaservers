@@ -25,19 +25,20 @@
 
 import { useRouter } from 'next/navigation';
 import { useCreatePlan, PlanActionError } from '../../../../../lib/plans/hooks';
-
+import { CircleMinus, Plus } from 'lucide-react';
+import { useState } from 'react'
 /**
  * AddPlan — client component for creating subscription plans.
  */
 export default function AddPlan() {
 	const router = useRouter();
 	const { mutate, isPending, error } = useCreatePlan();
+	const [features, setFeatures] = useState<string[]>([])
 
 	const fieldErrors = error instanceof PlanActionError ? (error.fieldErrors ?? {}) : {};
 	const globalError = error && !(error instanceof PlanActionError && error.fieldErrors)
 		? error.message
 		: null;
-
 	const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
 		e.preventDefault();
 		const formData = new FormData(e.currentTarget);
@@ -78,7 +79,7 @@ export default function AddPlan() {
 							{fieldErrors.name && <p className="text-xs text-red-500 mt-1">{fieldErrors.name}</p>}
 						</div>
 
-						<div className="grid grid-cols-2 gap-4">
+						<div className="grid grid-cols-3 gap-4">
 							<div>
 								<label className="block text-sm font-medium text-slate-700 mb-1">Amount (in ₹)</label>
 								<input
@@ -105,6 +106,19 @@ export default function AddPlan() {
 									<option value="yearly">Yearly</option>
 								</select>
 								{fieldErrors.interval && <p className="text-xs text-red-500 mt-1">{fieldErrors.interval}</p>}
+							</div>
+							<div>
+								<label className="block text-sm font-medium text-slate-700 mb-1">Plan Duration</label>
+								<input
+									name="duration"
+									type="number"
+									required
+									min="1"
+									step="1"
+									placeholder="12"
+									className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+								/>
+								{fieldErrors.duration && <p className="text-xs text-red-500 mt-1">{fieldErrors.duration}</p>}
 							</div>
 						</div>
 
@@ -134,6 +148,33 @@ export default function AddPlan() {
 								Set as Active (Visible to users)
 							</label>
 						</div>
+
+						<div>
+							<div className='flex items-center justify-between pb-2'>
+								<label className="block text-sm font-medium text-slate-700 mb-1">Features (Optional)</label>
+								<button className='flex border w-fit rounded-md py-2 px-3 shadow-md items-center gap-4' type='button' onClick={() => setFeatures(prev => [...prev, ""])}>
+									<span className='text-xs'>Add Features</span>
+									<Plus size={16} />
+								</button>
+							</div>
+							<div className='mt-4'>
+								{features?.map((f, i) => (
+									<div key={i} className='flex items-center justify-between gap-4 mb-2'>
+										<input
+											name="features[]"
+											type="text"
+											defaultValue={f}
+											className="w-full p-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+										/>
+										<button className='border w-fit rounded-md py-2 px-3 shadow-md' type='button'
+											onClick={() => setFeatures(prev => prev.filter((str, indx) => indx !== i))}>
+											<CircleMinus size={16} />
+										</button>
+									</div>
+								))}
+							</div>
+						</div>
+
 
 						<hr className="border-slate-100" />
 

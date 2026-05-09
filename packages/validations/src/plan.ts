@@ -35,6 +35,10 @@ export const planSchema = z.object({
 		.optional(),
 
 	is_active: z.boolean().default(true),
+	duration: z.number({ message: 'Duration must be a number' })
+		.positive('Duration must be greater than 0')
+		.max(100, 'Duration seems too large'),
+	features: z.string().array().optional()
 })
 
 export const createPlanSchema = planSchema

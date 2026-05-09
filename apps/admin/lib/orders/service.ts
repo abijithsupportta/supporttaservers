@@ -1,5 +1,5 @@
 import { dbGetOrders, dbGetOrdersCount, dbGetOrdersRevenue } from './repository'
-import type { Tables } from '@repo/database'
+import type { Tables } from '@workspace/database'
 
 /**
  * Orders Service
@@ -16,7 +16,7 @@ import type { Tables } from '@repo/database'
 
 /** An order row joined with the profile (full_name, email) */
 export type OrderWithProfile = Tables<'orders'> & {
-	profiles: Pick<Tables<'profiles'>, 'full_name' | 'email'> | null
+	user: Pick<Tables<'profiles'>, 'full_name' | 'email'> | null
 }
 
 /** Return type of getOrders */

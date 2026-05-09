@@ -38,59 +38,105 @@ export default async function SubscriptionsTable() {
 
 	return (
 		<div className="bg-white mt-4 rounded-xl border border-gray-200 overflow-hidden">
-			<table className="w-full text-left">
-				<thead className="bg-gray-50 border-b border-gray-200">
-					<tr>
-						<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Subscriber</th>
-						<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Plan</th>
-						<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Period</th>
-						<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-					</tr>
-				</thead>
-				<tbody className="divide-y divide-gray-100">
-					{subs.map((sub) => (
-						<tr key={sub.id} className="hover:bg-gray-50 transition">
-							<td className="px-6 py-4">
-								<div className="text-sm font-medium text-gray-900">
+			{/* Desktop Table View */}
+			<div className="hidden md:block overflow-x-auto">
+				<table className="w-full text-left">
+					<thead className="bg-gray-50 border-b border-gray-200">
+						<tr>
+							<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Subscriber</th>
+							<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Plan</th>
+							<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Period</th>
+							<th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
+						</tr>
+					</thead>
+					<tbody className="divide-y divide-gray-100">
+						{subs.map((sub) => (
+							<tr key={sub.id} className="hover:bg-gray-50 transition">
+								<td className="px-6 py-4">
+									<div className="text-sm font-medium text-gray-900">
+										{sub.profiles?.full_name ?? '—'}
+									</div>
+									<div className="text-xs text-gray-500">
+										{sub.profiles?.email ?? '—'}
+									</div>
+								</td>
+								<td className="px-6 py-4">
+									<span className="text-blue-600 font-medium text-sm">
+										{sub.plan?.name ?? '—'}
+									</span>
+									{sub.plan && (
+										<div className="text-xs text-gray-400">
+											₹{(sub.plan.amount / 100).toLocaleString('en-IN')} / {sub.plan.interval}
+										</div>
+									)}
+								</td>
+								<td className="px-6 py-4 text-sm text-gray-500">
+									{sub.current_period_end
+										? `Ends ${new Date(sub.current_period_end).toLocaleDateString('en-IN', {
+											day: 'numeric',
+											month: 'short',
+											year: 'numeric',
+										})}`
+										: '—'}
+								</td>
+								<td className="px-6 py-4">
+									<div className="flex items-center gap-2">
+										<div className={`w-2 h-2 rounded-full ${sub.status === 'active' ? 'bg-emerald-500' :
+											sub.status === 'cancelled' ? 'bg-red-500' :
+												sub.status === 'failed' ? 'bg-orange-500' :
+													'bg-gray-400'
+											}`} />
+										<span className="text-sm text-gray-700 capitalize">{sub.status}</span>
+									</div>
+								</td>
+							</tr>
+						))}
+					</tbody>
+				</table>
+			</div>
+
+			{/* Mobile Card View */}
+			<div className="md:hidden divide-y divide-gray-100">
+				{subs.map((sub) => (
+					<div key={sub.id} className="p-4 hover:bg-gray-50 transition">
+						<div className="flex justify-between items-start mb-3">
+							<div className="flex-1">
+								<div className="text-sm font-medium text-gray-900 mb-1">
 									{sub.profiles?.full_name ?? '—'}
 								</div>
-								<div className="text-xs text-gray-500">
+								<div className="text-xs text-gray-500 mb-2">
 									{sub.profiles?.email ?? '—'}
 								</div>
-							</td>
-							<td className="px-6 py-4">
 								<span className="text-blue-600 font-medium text-sm">
 									{sub.plan?.name ?? '—'}
 								</span>
 								{sub.plan && (
-									<div className="text-xs text-gray-400">
+									<div className="text-xs text-gray-400 mt-1">
 										₹{(sub.plan.amount / 100).toLocaleString('en-IN')} / {sub.plan.interval}
 									</div>
 								)}
-							</td>
-							<td className="px-6 py-4 text-sm text-gray-500">
-								{sub.current_period_end
-									? `Ends ${new Date(sub.current_period_end).toLocaleDateString('en-IN', {
-										day: 'numeric',
-										month: 'short',
-										year: 'numeric',
-									})}`
-									: '—'}
-							</td>
-							<td className="px-6 py-4">
-								<div className="flex items-center gap-2">
-									<div className={`w-2 h-2 rounded-full ${sub.status === 'active' ? 'bg-emerald-500' :
-										sub.status === 'cancelled' ? 'bg-red-500' :
-											sub.status === 'failed' ? 'bg-orange-500' :
-												'bg-gray-400'
-										}`} />
-									<span className="text-sm text-gray-700 capitalize">{sub.status}</span>
-								</div>
-							</td>
-						</tr>
-					))}
-				</tbody>
-			</table>
+							</div>
+							<div className="flex items-center gap-2">
+								<div className={`w-2 h-2 rounded-full ${sub.status === 'active' ? 'bg-emerald-500' :
+									sub.status === 'cancelled' ? 'bg-red-500' :
+										sub.status === 'failed' ? 'bg-orange-500' :
+											'bg-gray-400'
+									}`} />
+								<span className="text-xs text-gray-700 capitalize">{sub.status}</span>
+							</div>
+						</div>
+						<div className="text-xs text-gray-500 pt-3 border-t border-gray-100">
+							{sub.current_period_end
+								? `Ends ${new Date(sub.current_period_end).toLocaleDateString('en-IN', {
+									day: 'numeric',
+									month: 'short',
+									year: 'numeric',
+								})}`
+								: '—'}
+						</div>
+					</div>
+				))}
+			</div>
 
 			{subs.length === 0 && (
 				<div className="p-12 text-center">

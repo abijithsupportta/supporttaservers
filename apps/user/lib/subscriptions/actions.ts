@@ -1,9 +1,9 @@
 'use server'
 
-import { createClient } from '@myapp/supabase/server'
-import { getRazorpay } from '@myapp/razorpay'
+import { getRazorpay } from '@workspace/razorpay'
 import { getPlanById } from '../plans/service'
-import { createNewSubscription } from './service'
+import { createNewSubscription, getCurrentSubscription, getSubscriptionById, updateSubscriptionByIdAdmin } from './service'
+import { getAuthUser } from '../auth/server'
 
 /**
  * Subscription Server Actions
@@ -19,13 +19,12 @@ import { createNewSubscription } from './service'
  * A webhook (to be wired up) will update it to 'active' once payment completes.
  */
 export type SubscribeResult =
-	| { success: true; checkoutUrl: string }
+	| { success: true; data: { checkoutUrl: string, subscriptionId: string, interval?: string } }
 	| { success: false; error: string }
 
 export async function createSubscriptionAction(planId: string): Promise<SubscribeResult> {
 	// ── 1. Auth ───────────────────────────────────────────────────────────────
-	const supabase = await createClient()
-	const { data: { user }, error: authError } = await supabase.auth.getUser()
+	const { user, error: authError } = await getAuthUser()
 
 	if (authError || !user) {
 		return { success: false, error: 'You must be logged in to subscribe' }
@@ -49,11 +48,13 @@ export async function createSubscriptionAction(planId: string): Promise<Subscrib
 
 	// ── 3. Create Razorpay subscription ───────────────────────────────────────
 	const razorpay = getRazorpay()
-	let rzpSubscription
+	let rzpSubscription = {
+		short_url: "", id: ""
+	}
 	try {
 		rzpSubscription = await razorpay.subscriptions.create({
 			plan_id: plan.razorpay_plan_id,
-			total_count: 12,
+			total_count: plan.duration_cycles,
 			quantity: 1,
 			customer_notify: 1,
 		})
@@ -71,21 +72,68 @@ export async function createSubscriptionAction(planId: string): Promise<Subscrib
 		user_id: user.id,
 		plan_id: plan.id,
 		razorpay_subscription_id: rzpSubscription.id,
-		status: 'pending',
+		status: 'created',
 		cancel_at_period_end: false,
 	})
 
 	if (!dbResult.success) {
-		// Razorpay subscription was created but DB write failed.
-		// Log it — a webhook will attempt to reconcile later.
 		console.error(
 			'[subscriptions] DB write failed after Razorpay subscription created:',
 			{ razorpay_subscription_id: rzpSubscription.id, error: dbResult.error }
 		)
-		// Still return the checkout URL so the user can complete payment.
-		// The webhook will create/update the DB record on payment success.
 	}
 
 	// ── 5. Return checkout URL ────────────────────────────────────────────────
-	return { success: true, checkoutUrl: rzpSubscription.short_url }
+	return {
+		success: true, data: {
+			checkoutUrl:
+				rzpSubscription.short_url,
+			subscriptionId: rzpSubscription.id,
+			interval: plan.interval
+		}
+	}
+}
+
+
+
+export async function cancelSubscription(subscriptionId: string, cancelAtCycleEnd: boolean) {
+
+	// ── 1. Auth ───────────────────────────────────────────────────────────────
+	const { user, error: authError } = await getAuthUser()
+	if (authError || !user) {
+		return { success: false, error: 'You must be logged in to upgrade' }
+	}
+	const razorpay = getRazorpay()
+
+	const subscription = await getSubscriptionById(subscriptionId)
+	if (!subscription.success || !subscription.data) {
+		return { success: false, error: 'No subscription found' }
+	}
+
+	const subscriptionData = subscription.data
+
+	if (!subscriptionData.razorpay_subscription_id) {
+		return { success: false, error: 'Current subscription has no Razorpay ID' }
+	}
+
+	let rzpSubscription
+	try {
+		rzpSubscription = await razorpay.subscriptions.cancel(
+			subscriptionData.razorpay_subscription_id,
+			cancelAtCycleEnd
+		)
+
+		if (cancelAtCycleEnd) {
+			await updateSubscriptionByIdAdmin(subscriptionData.id, {
+				cancel_at_period_end: cancelAtCycleEnd,
+			})
+		}
+
+	} catch (err: any) {
+		console.log(err)
+		const message = err?.error?.description ?? err?.message ?? 'Failed to update subscription with Razorpay'
+		return { success: false, error: message }
+	}
+
+	return { success: true }
 }

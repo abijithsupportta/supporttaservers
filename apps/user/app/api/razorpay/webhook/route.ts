@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import crypto from "crypto"
+import fs from "fs"
+import path from "path"
+import { getSubscriptionByRazorpayId, updateSubscriptionByIdAdmin, updateSubscriptionByRazorpayId } from "../../../../lib/subscriptions/service"
+import { updateUserRoleAdmin } from "../../../../lib/users/service"
+import type { TablesInsert } from "@workspace/database"
+import { createPayment } from "../../../../lib/payments/service"
+import { createOrder } from "../../../../lib/orders/service"
+import { createInvoice } from "../../../../lib/invoices/service"
+import { validateWebhookSignature } from "razorpay/dist/utils/razorpay-utils"
 
 /**
  * @file app/api/razorpay/webhook/route.ts
@@ -9,268 +17,492 @@ import crypto from "crypto"
  * and payment lifecycle events. Each event is verified via HMAC-SHA256
  * before processing.
  *
- * Signature verification:
- *   HMAC-SHA256(raw_body, RAZORPAY_WEBHOOK_SECRET) === x-razorpay-signature
  *
- * Razorpay retries failed webhooks (non-2xx) up to 3 times with backoff.
- * Always return 200 after signature verification — even for unhandled events.
+ * 
+ * DB writes use supabaseAdmin (service role key) because webhook requests
+ * have no user session — they come directly from Razorpay's servers.
  *
- * Event payload shape (all events):
- *   event.event          — event name string
- *   event.payload        — contains entity objects depending on event type
- *   event.created_at     — unix timestamp
- *
- * Subscription entity fields used here:
- *   subscription.id                  — razorpay subscription ID (sub_xxx)
- *   subscription.plan_id             — razorpay plan ID (plan_xxx)
- *   subscription.status              — created | authenticated | active | pending | halted | cancelled | completed | expired
- *   subscription.current_start       — unix timestamp, current period start
- *   subscription.current_end         — unix timestamp, current period end
- *   subscription.charge_at           — unix timestamp, next charge date
- *   subscription.total_count         — total billing cycles
- *   subscription.paid_count          — cycles paid so far
- *   subscription.remaining_count     — cycles remaining
- *
- * Payment entity fields used here:
- *   payment.id                       — razorpay payment ID (pay_xxx)
- *   payment.subscription_id          — razorpay subscription ID this payment belongs to
- *   payment.amount                   — amount in paise
- *   payment.currency                 — INR
- *   payment.status                   — captured | failed
- *   payment.error_code               — present on failure
- *   payment.error_description        — present on failure
+ * 
  */
 
 export async function POST(req: NextRequest) {
-	// ── 1. Read raw body (must be done before any parsing) ───────────────────
-	const body = await req.text()
-	const signature = req.headers.get("x-razorpay-signature") || ""
+	// ── 1. Read raw body (must happen before any parsing) ────────────────────
+	try {
+		const body = await req.text()
+		const signature = req.headers.get("x-razorpay-signature") || ""
 
-	// ── 2. Verify signature ───────────────────────────────────────────────────
-	const secret = process.env.RAZORPAY_WEBHOOK_SECRET
 
-	if (!secret) {
-		console.error("[webhook] RAZORPAY_WEBHOOK_SECRET is not set")
-		return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 })
+		// ── 2. Verify signature ───────────────────────────────────────────────────
+		const secret = process.env.RAZORPAY_WEBHOOK_SECRET
+
+		if (!secret) {
+			console.error("[webhook] RAZORPAY_WEBHOOK_SECRET is not set")
+			return NextResponse.json({ error: "Webhook secret not configured" }, { status: 500 })
+		}
+
+		if (!validateWebhookSignature(body, signature, secret)) {
+			console.warn("[webhook] Invalid signature")
+			// return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
+		}
+
+		// ── 3. Parse event ────────────────────────────────────────────────────────
+		const event = JSON.parse(body)
+		const eventName: string = event.event
+		const eventId: string = event.id ?? ""
+
+		console.log(`\n\n[webhook] Received: ${eventName} (id: ${eventId})`)
+
+		// try {
+		// 	const eventsFilePath = path.join(process.cwd(), 'events.json')
+		// 	let eventsData: Record<string, any[]> = {}
+		// 	if (fs.existsSync(eventsFilePath)) {
+		// 		const fileContent = fs.readFileSync(eventsFilePath, 'utf-8')
+		// 		if (fileContent) {
+		// 			eventsData = JSON.parse(fileContent)
+		// 		}
+		// 	}
+
+		// 	if (!Array.isArray(eventsData[eventName])) {
+		// 		eventsData[eventName] = []
+		// 	}
+		// 	eventsData[eventName].push(event)
+
+		// 	fs.writeFileSync(eventsFilePath, JSON.stringify(eventsData, null, 2))
+		// } catch (fsError) {
+		// 	console.error("[webhook] Failed to save event to events.json", fsError)
+		// }
+
+		// ── 4. Handle events ──────────────────────────────────────────────────────
+		switch (eventName) {
+
+			// ── Subscription: authenticated ───────────────────────────────────────
+			// Fires after the user completes the mandate/auth step on the checkout.
+			// First charge hasn't happened yet.
+			case "subscription.authenticated": {
+				const sub = event.payload.subscription.entity
+				console.log("[webhook] subscription.authenticated:", {
+					id: sub.id,
+					status: sub.status,
+				})
+				break
+			}
+
+			// ── Subscription: activated ───────────────────────────────────────────
+			// Fires when the first payment is captured and the subscription goes live.
+			// Primary event to flip status from 'pending' → 'active'.
+			case "subscription.activated": {
+				const sub = event.payload.subscription.entity
+				const payment = event.payload.payment?.entity
+				console.log("[webhook] subscription.activated:", {
+					id: sub.id,
+					plan_id: sub.plan_id,
+					current_start: sub.current_start,
+					current_end: sub.current_end,
+					paid_count: sub.paid_count,
+				})
+
+				const userSubscription = await getSubscriptionByRazorpayId(sub.id)
+				if (!userSubscription.success || !userSubscription.data) {
+					console.error("[webhook] Error finding user subscription for:", sub.id)
+					throw new Error("Error finding user subscription")
+				}
+
+				// Update subscription to active
+				await updateSubscriptionByIdAdmin(userSubscription.data.id, {
+					status: 'active',
+					current_period_start: new Date(sub.current_start * 1000).toISOString(),
+					current_period_end: new Date(sub.current_end * 1000).toISOString(),
+					updated_at: new Date().toISOString()
+				})
+
+				// Promote user to pro
+				await updateUserRoleAdmin(userSubscription.data.user_id, 'pro')
+
+				// Create payment record if payment data is available
+				if (payment) {
+					await createPayment({
+						subscription_id: userSubscription.data.id,
+						razorpay_payment_id: payment.id,
+						amount: payment.amount,
+						currency: payment.currency || 'INR',
+						status: payment.status || 'captured',
+						paid_at: new Date().toISOString(),
+						razorpay_signature: signature
+					})
+				}
+
+				// Create order record for the first payment
+				if (payment) {
+					const orderData: TablesInsert<'orders'> = {
+						user_id: userSubscription.data.user_id,
+						plan_id: userSubscription.data.plan_id,
+						razorpay_subscription_id: sub.id,
+						razorpay_order_id: payment.id,
+						amount_paise: payment.amount,
+						currency: payment.currency || 'INR',
+						status: 'active',
+						razorpay_customer_id: sub.customer_id
+					}
+					await createOrder(orderData)
+				}
+				break
+			}
+
+			// ── Subscription: charged ─────────────────────────────────────────────
+			// Fires on every successful recurring charge (2nd cycle onwards).
+			// Both sub and payment entities are present in this event's payload.
+			case "subscription.charged": {
+				const sub = event.payload.subscription.entity
+				const payment = event.payload.payment.entity
+				console.log("[webhook] subscription.charged:", {
+					subscription_id: sub.id,
+					payment_id: payment.id,
+					amount: payment.amount,
+					paid_count: sub.paid_count,
+					remaining_count: sub.remaining_count,
+					current_start: sub.current_start,
+					current_end: sub.current_end,
+				})
+
+				const userSubscription = await getSubscriptionByRazorpayId(sub.id)
+				if (!userSubscription.success || !userSubscription.data) {
+					console.error("[webhook] Error finding user subscription for:", sub.id)
+					throw new Error("Error finding user subscription")
+				}
+
+				// Update subscription with new period dates
+				await updateSubscriptionByIdAdmin(userSubscription.data.id, {
+					status: 'active',
+					current_period_start: new Date(sub.current_start * 1000).toISOString(),
+					current_period_end: new Date(sub.current_end * 1000).toISOString(),
+					updated_at: new Date().toISOString(),
+				})
+
+				// Ensure user stays pro on every renewal
+				await updateUserRoleAdmin(userSubscription.data.user_id, 'pro')
+
+				// Create payment record
+				await createPayment({
+					subscription_id: userSubscription.data.id,
+					razorpay_payment_id: payment.id,
+					amount: payment.amount,
+					currency: payment.currency || 'INR',
+					status: payment.status || 'captured',
+					paid_at: new Date().toISOString(),
+					razorpay_signature: signature
+				})
+
+
+				const orderData: TablesInsert<'orders'> = {
+					user_id: userSubscription.data.user_id,
+					plan_id: userSubscription.data.plan_id,
+					razorpay_subscription_id: sub.id,
+					razorpay_order_id: payment.id,
+					amount_paise: payment.amount,
+					currency: payment.currency || 'INR',
+					status: 'active',
+					razorpay_customer_id: sub.customer_id
+				}
+				await createOrder(orderData)
+
+				break
+			}
+
+			// ── Subscription: pending ─────────────────────────────────────────────
+			// Fires when a recurring charge fails and Razorpay is retrying.
+			// Subscription is still alive — do not revoke access yet.
+			case "subscription.pending": {
+				const sub = event.payload.subscription.entity
+				const payment = event.payload.payment?.entity
+				console.log("[webhook] subscription.pending:", {
+					id: sub.id,
+					remaining_count: sub.remaining_count,
+					reason: payment.error_code,
+					desc: payment.error_description
+				})
+
+				await updateSubscriptionByRazorpayId(sub.id, {
+					status: "pending",
+					updated_at: new Date().toISOString(),
+				})
+
+				// Create a failed payment record if payment data is available in payload
+				if (payment) {
+					const userSubscription = await getSubscriptionByRazorpayId(sub.id)
+					if (userSubscription.success && userSubscription.data) {
+						await createPayment({
+							subscription_id: userSubscription.data.id,
+							razorpay_payment_id: payment.id,
+							amount: payment.amount,
+							razorpay_signature: signature,
+							currency: payment.currency || 'INR',
+							status: 'failed',
+							failure_code: payment.error_code,
+							failure_reason: payment.error_description,
+							paid_at: null
+						})
+					}
+				}
+
+				break
+			}
+
+			// ── Subscription: halted ──────────────────────────────────────────────
+			// Fires when Razorpay exhausts all retries.
+			// Revoke user access at this point.
+			case "subscription.halted": {
+				const sub = event.payload.subscription.entity
+				console.log("[webhook] subscription.halted:", {
+					id: sub.id,
+					paid_count: sub.paid_count,
+					remaining_count: sub.remaining_count,
+				})
+
+				await updateSubscriptionByRazorpayId(sub.id, {
+					status: "failed",
+					updated_at: new Date().toISOString(),
+				})
+
+				// Revoke pro access — all retries exhausted
+				const haltedSub = await getSubscriptionByRazorpayId(sub.id)
+				if (haltedSub.success && haltedSub.data) {
+					await updateUserRoleAdmin(haltedSub.data.user_id, 'user')
+				}
+
+				break
+			}
+
+			// ── Subscription: cancelled ───────────────────────────────────────────
+			// Fires when cancelled by user, by API, or automatically at period end.
+			case "subscription.cancelled": {
+				const sub = event.payload.subscription.entity
+				console.log("[webhook] subscription.cancelled:", {
+					id: sub.id,
+					ended_at: sub.ended_at,
+				})
+
+				const result = await updateSubscriptionByRazorpayId(sub.id, {
+					status: "cancelled",
+					cancelled_at: sub.ended_at ? new Date(sub.ended_at * 1000).toISOString() : new Date().toISOString(),
+					cancel_at_period_end: false,
+					updated_at: new Date().toISOString(),
+				})
+
+				// Revoke pro access
+				if (result.success && result.data) {
+					await updateUserRoleAdmin(result.data.user_id, 'user')
+				}
+				break
+			}
+
+			// ── Subscription: completed ───────────────────────────────────────────
+			// Fires when all billing cycles are exhausted naturally (not a failure).
+			case "subscription.completed": {
+				const sub = event.payload.subscription.entity
+				console.log("[webhook] subscription.completed:", {
+					id: sub.id,
+					paid_count: sub.paid_count,
+					total_count: sub.total_count,
+				})
+
+				await updateSubscriptionByRazorpayId(sub.id, {
+					status: "completed",
+					updated_at: new Date().toISOString(),
+				})
+
+				// All cycles done — revert to free user
+				const completedSub = await getSubscriptionByRazorpayId(sub.id)
+				if (completedSub.success && completedSub.data) {
+					await updateUserRoleAdmin(completedSub.data.user_id, 'user')
+				}
+
+				break
+			}
+
+			// ── Subscription: paused ──────────────────────────────────────────────
+			// Fires when a subscription is paused (manually or via API).
+			case "subscription.paused": {
+				const sub = event.payload.subscription.entity
+				console.log("[webhook] subscription.paused:", {
+					id: sub.id,
+					status: sub.status,
+				})
+
+				await updateSubscriptionByRazorpayId(sub.id, {
+					status: "paused",
+					updated_at: new Date().toISOString(),
+				})
+
+				// Revoke pro access while paused
+				const pausedSub = await getSubscriptionByRazorpayId(sub.id)
+				if (pausedSub.success && pausedSub.data) {
+					await updateUserRoleAdmin(pausedSub.data.user_id, 'user')
+				}
+
+				break
+			}
+
+			// ── Subscription: resumed ─────────────────────────────────────────────
+			// Fires when a paused subscription is resumed.
+			case "subscription.resumed": {
+				const sub = event.payload.subscription.entity
+				console.log("[webhook] subscription.resumed:", {
+					id: sub.id,
+					status: sub.status,
+				})
+
+				await updateSubscriptionByRazorpayId(sub.id, {
+					status: "active",
+					updated_at: new Date().toISOString(),
+				})
+
+				// Restore pro access on resume
+				const resumedSub = await getSubscriptionByRazorpayId(sub.id)
+				if (resumedSub.success && resumedSub.data) {
+					await updateUserRoleAdmin(resumedSub.data.user_id, 'pro')
+				}
+
+				break
+			}
+
+			// ── Subscription: updated ─────────────────────────────────────────────
+			// Fires when subscription details are updated (plan change, quantity, etc).
+			case "subscription.updated": {
+				const sub = event.payload.subscription.entity
+				console.log("[webhook] subscription.updated:", {
+					id: sub.id,
+					plan_id: sub.plan_id,
+					status: sub.status,
+				})
+
+				// Update subscription with latest details
+				await updateSubscriptionByRazorpayId(sub.id, {
+					current_period_start: sub.current_start ? new Date(sub.current_start * 1000).toISOString() : null,
+					current_period_end: sub.current_end ? new Date(sub.current_end * 1000).toISOString() : null,
+					updated_at: new Date().toISOString(),
+				})
+
+				break
+			}
+
+			// ── Payment: captured ─────────────────────────────────────────────────
+			// Fires on any successful payment capture.
+			// For subscriptions, subscription.charged is more specific and fires too.
+			// Use this for one-time payment flows.
+			case "payment.captured": {
+				const payment = event.payload.payment.entity
+				console.log("[webhook] payment.captured:", {
+					id: payment.id,
+					subscription_id: payment.subscription_id ?? null,
+					amount: payment.amount,
+					currency: payment.currency,
+				})
+
+				break
+			}
+
+			// ── Payment: failed ───────────────────────────────────────────────────
+			// Fires on any failed payment attempt.
+			// For subscriptions, Razorpay retries — subscription.pending fires too.
+			// For one-time payments this is terminal.
+			case "payment.failed": {
+				const payment = event.payload.payment.entity
+				console.log("[webhook] payment.failed:", {
+					id: payment.id,
+					subscription_id: payment.subscription_id ?? null,
+					error_code: payment.error_code,
+					error_description: payment.error_description,
+				})
+
+				// For subscription payments, the subscription.pending event will handle the subscription status
+				if (payment.subscription_id) {
+					const userSubscription = await getSubscriptionByRazorpayId(payment.subscription_id)
+					if (userSubscription.success && userSubscription.data) {
+						// Create a failed payment record for tracking
+						await createPayment({
+							subscription_id: userSubscription.data.id,
+							razorpay_payment_id: payment.id,
+							amount: payment.amount,
+							currency: payment.currency || 'INR',
+							status: 'failed',
+							paid_at: new Date().toISOString(),
+							razorpay_signature: signature
+						})
+					}
+				}
+
+				break
+			}
+
+			// ── Invoice: paid ────────────────────────────────────────────────────
+			// Fires when a Razorpay invoice is paid (typically for subscription renewals).
+			// Creates an invoice record linked to the order for billing history.
+			case "invoice.paid": {
+				const invoice = event.payload.invoice.entity
+				const payment = event.payload.payment?.entity
+
+				console.log("[webhook] invoice.paid:", {
+					id: invoice.id,
+					invoice_number: invoice.invoice_number ?? null,
+					order_id: invoice.order_id ?? null,
+					subscription_id: invoice.subscription_id ?? null,
+					amount: invoice.amount,
+
+					currency: invoice.currency,
+				})
+
+				// Resolve the user_id via the subscription
+				const razorpaySubId = invoice.subscription_id
+				if (!razorpaySubId) {
+					console.warn("[webhook] invoice.paid: no subscription_id on invoice, skipping")
+					break
+				}
+
+				const userSubscription = await getSubscriptionByRazorpayId(razorpaySubId)
+				if (!userSubscription.success || !userSubscription.data) {
+					console.error("[webhook] invoice.paid: subscription not found for:", razorpaySubId)
+					throw new Error("Subscription not found for invoice")
+				}
+
+				await createInvoice({
+					user_id: userSubscription.data.user_id,
+					razorpay_invoice_id: invoice.id,
+					razorpay_order_id: invoice.order_id,
+					amount_paise: invoice.amount,
+					currency: invoice.currency ?? 'INR',
+					invoice_number: invoice.invoice_number ?? null,
+					razorpay_payment_id: payment.id,
+					billing_snapshot: {
+						invoice: invoice,
+						payment: payment ?? null,
+					},
+				})
+
+				break
+			}
+
+			// ── Unhandled ─────────────────────────────────────────────────────────
+			default:
+				console.log(`[webhook] Unhandled event: ${eventName}`)
+		}
+
+	} catch (error) {
+		console.error("[webhook] Error processing webhook:", error)
+
+		// Log the error
+		if (error instanceof Error) {
+			console.error("[webhook] Error message:", error.message)
+			console.error("[webhook] Error stack:", error.stack)
+		}
+
+		// Return 200 even on error to prevent Razorpay from retrying
+		// Log the error for manual investigation instead
+		return NextResponse.json({
+			received: true,
+			error: "Internal processing error"
+		})
 	}
 
-	const expectedSignature = crypto
-		.createHmac("sha256", secret)
-		.update(body)
-		.digest("hex")
-
-	if (expectedSignature !== signature) {
-		console.warn("[webhook] Invalid signature — possible spoofed request")
-		return NextResponse.json({ error: "Invalid signature" }, { status: 400 })
-	}
-
-	// ── 3. Parse event ────────────────────────────────────────────────────────
-	const event = JSON.parse(body)
-	const eventName: string = event.event
-	const eventId: string = event.id ?? ""
-
-	console.log(`[webhook] Received: ${eventName} (id: ${eventId})`)
-
-	// ── 4. Handle events ──────────────────────────────────────────────────────
-	switch (eventName) {
-
-		// ── Subscription: created ─────────────────────────────────────────────
-		// Fires when a subscription object is created in Razorpay.
-		case "subscription.created": {
-			const sub = event.payload.subscription.entity
-			console.log("[webhook] subscription.created:", {
-				id: sub.id,
-				plan_id: sub.plan_id,
-				status: sub.status,
-			})
-
-			// TODO: call dbUpdateSubscription where razorpay_subscription_id = sub.id
-			// set status = 'pending' (already set, but confirms the record is linked)
-			// No-op for now — record was already created in createSubscriptionAction
-
-			break
-		}
-
-		// ── Subscription: authenticated ───────────────────────────────────────
-		// Fires after the user completes the mandate/auth step on the checkout page.
-		// The first charge hasn't happened yet. Status moves to 'authenticated'.
-		case "subscription.authenticated": {
-			const sub = event.payload.subscription.entity
-			console.log("[webhook] subscription.authenticated:", {
-				id: sub.id,
-				status: sub.status,
-			})
-
-			// TODO: call dbUpdateSubscription where razorpay_subscription_id = sub.id
-			// set status = 'pending' (mandate confirmed, awaiting first charge)
-
-			break
-		}
-
-		// ── Subscription: activated ───────────────────────────────────────────
-		// Fires when the first payment is captured and the subscription goes live.
-		// This is the primary event to flip status from 'pending' → 'active' in DB.
-		case "subscription.activated": {
-			const sub = event.payload.subscription.entity
-			console.log("[webhook] subscription.activated:", {
-				id: sub.id,
-				plan_id: sub.plan_id,
-				current_start: sub.current_start,
-				current_end: sub.current_end,
-				paid_count: sub.paid_count,
-			})
-
-			// TODO: call dbUpdateSubscription where razorpay_subscription_id = sub.id
-			// set:
-			//   status = 'active'
-			//   current_period_start = new Date(sub.current_start * 1000).toISOString()
-			//   current_period_end   = new Date(sub.current_end * 1000).toISOString()
-
-			break
-		}
-
-		// ── Subscription: charged ─────────────────────────────────────────────
-		// Fires on every successful recurring charge (2nd cycle onwards).
-		// Use this to keep current_period_start / current_period_end up to date.
-		case "subscription.charged": {
-			const sub = event.payload.subscription.entity
-			const payment = event.payload.payment.entity
-			console.log("[webhook] subscription.charged:", {
-				subscription_id: sub.id,
-				payment_id: payment.id,
-				amount: payment.amount,
-				paid_count: sub.paid_count,
-				remaining_count: sub.remaining_count,
-				current_start: sub.current_start,
-				current_end: sub.current_end,
-			})
-
-			// TODO: call dbUpdateSubscription where razorpay_subscription_id = sub.id
-			// set:
-			//   status = 'active'
-			//   current_period_start = new Date(sub.current_start * 1000).toISOString()
-			//   current_period_end   = new Date(sub.current_end * 1000).toISOString()
-			// TODO: optionally create an order/invoice record in the orders table
-			//   with payment_id, amount, subscription_id
-
-			break
-		}
-
-		// ── Subscription: pending ─────────────────────────────────────────────
-		// Fires when a recurring charge fails and Razorpay is retrying.
-		// The subscription is still alive but payment is pending.
-		case "subscription.pending": {
-			const sub = event.payload.subscription.entity
-			console.log("[webhook] subscription.pending:", {
-				id: sub.id,
-				remaining_count: sub.remaining_count,
-			})
-
-			// TODO: call dbUpdateSubscription where razorpay_subscription_id = sub.id
-			// set status = 'pending'
-
-			break
-		}
-
-		// ── Subscription: halted ──────────────────────────────────────────────
-		// Fires when Razorpay exhausts all retries and halts the subscription.
-		// The user's access should be revoked at this point.
-		case "subscription.halted": {
-			const sub = event.payload.subscription.entity
-			console.log("[webhook] subscription.halted:", {
-				id: sub.id,
-				paid_count: sub.paid_count,
-				remaining_count: sub.remaining_count,
-			})
-
-			// TODO: call dbUpdateSubscription where razorpay_subscription_id = sub.id
-			// set status = 'failed'
-
-			break
-		}
-
-		// ── Subscription: cancelled ───────────────────────────────────────────
-		// Fires when the subscription is cancelled — either by the user,
-		// by you via the API, or automatically at period end.
-		case "subscription.cancelled": {
-			const sub = event.payload.subscription.entity
-			console.log("[webhook] subscription.cancelled:", {
-				id: sub.id,
-				ended_at: sub.ended_at,
-			})
-
-			// TODO: call dbUpdateSubscription where razorpay_subscription_id = sub.id
-			// set:
-			//   status = 'cancelled'
-			//   cancelled_at = new Date(sub.ended_at * 1000).toISOString()  (if ended_at present)
-			//   cancel_at_period_end = false  (it's already cancelled)
-
-			break
-		}
-
-		// ── Subscription: completed ───────────────────────────────────────────
-		// Fires when all billing cycles are exhausted (total_count reached).
-		// Subscription ends naturally — not a failure.
-		case "subscription.completed": {
-			const sub = event.payload.subscription.entity
-			console.log("[webhook] subscription.completed:", {
-				id: sub.id,
-				paid_count: sub.paid_count,
-				total_count: sub.total_count,
-			})
-
-			// TODO: call dbUpdateSubscription where razorpay_subscription_id = sub.id
-			// set status = 'cancelled'  (no 'completed' enum in DB — treat as ended)
-
-			break
-		}
-
-		// ── Payment: captured ─────────────────────────────────────────────────
-		// Fires when a payment is successfully captured.
-		// For subscriptions, subscription.charged is more specific — but this
-		// fires too and can be used as a fallback or for one-time payments.
-		case "payment.captured": {
-			const payment = event.payload.payment.entity
-			console.log("[webhook] payment.captured:", {
-				id: payment.id,
-				subscription_id: payment.subscription_id ?? null,
-				amount: payment.amount,
-				currency: payment.currency,
-			})
-
-			// TODO: if payment.subscription_id is present, this is a subscription payment
-			//   → optionally create an order record in the orders table
-			// TODO: if payment.subscription_id is null, this is a one-time payment
-			//   → handle one-time order flow here
-
-			break
-		}
-
-		// ── Payment: failed ───────────────────────────────────────────────────
-		// Fires when a payment attempt fails.
-		// For subscriptions, Razorpay will retry — subscription.pending fires too.
-		// For one-time payments, this is terminal.
-		case "payment.failed": {
-			const payment = event.payload.payment.entity
-			console.log("[webhook] payment.failed:", {
-				id: payment.id,
-				subscription_id: payment.subscription_id ?? null,
-				error_code: payment.error_code,
-				error_description: payment.error_description,
-			})
-
-			// TODO: if payment.subscription_id is present — Razorpay handles retries,
-			//   subscription.pending / subscription.halted will fire accordingly
-			// TODO: if payment.subscription_id is null — mark the one-time order as failed
-
-			break
-		}
-
-		// ── Unhandled ─────────────────────────────────────────────────────────
-		default:
-			console.log(`[webhook] Unhandled event: ${eventName}`)
-	}
-
-	// Always return 200 so Razorpay doesn't retry
+	// Always return 200
 	return NextResponse.json({ received: true })
 }

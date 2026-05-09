@@ -1,11 +1,12 @@
 {
-	"name": "@myapp/supabase",
+	"name": "@workspace/supabase",
 	"version": "0.0.1",
 	"main": "./index.ts",
 	"exports": {
 		".": "./index.ts",
 		"./server": "./src/server.ts",
-		"./client": "./src/client.ts"
+		"./client": "./src/client.ts",
+		"./admin": "./src/admin.ts"
 	},
 	"dependencies": {
 		"@supabase/supabase-js": "latest",

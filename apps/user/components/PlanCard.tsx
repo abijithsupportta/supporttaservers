@@ -1,81 +1,141 @@
+/**
+ * @file components/PlanCard.tsx
+ * @description Card component displaying subscription plan details and actions (subscribe/upgrade).
+ */
 'use client'
 
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { createSubscriptionAction } from '../lib/subscriptions/actions'
 import type { Plan } from '../lib/plans/service'
+import { Check } from 'lucide-react'
+import { SubscriptionConfirmDialog } from './SubscriptionConfirmDialog'
+import { openRazorpayCheckout } from '../lib/razorpay/subscription-handler'
 
 interface PlanCardProps {
 	plan: Plan
+	isCurrent?: boolean
 }
 
-const PlanCard = ({ plan }: PlanCardProps) => {
+const PlanCard = ({ plan, isCurrent, }: PlanCardProps) => {
 	const [loading, setLoading] = useState(false)
+	const [showDialog, setShowDialog] = useState(false)
 
-	const handleSubscribe = async () => {
+	const handleClick = () => {
+		setShowDialog(true)
+	}
+
+	const handleConfirm = async () => {
 		setLoading(true)
+		setShowDialog(false)
+
 		try {
+			// Create subscription in backend
 			const result = await createSubscriptionAction(plan.id)
+
 			if (!result.success) {
 				toast.error(result.error)
+				setLoading(false)
 				return
 			}
-			// Redirect to Razorpay hosted checkout
-			window.location.href = result.checkoutUrl
-		} catch {
+
+			// Open Razorpay checkout
+			const success = await openRazorpayCheckout({
+				subscriptionId: result.data.subscriptionId,
+				planName: plan.name,
+				interval: result.data.interval || "",
+				onSuccess: () => {
+					// Checkout opened successfully
+					console.log('Razorpay checkout opened')
+				},
+				onFailure: (error) => {
+					console.error('Razorpay checkout failed:', error)
+					setLoading(false)
+				},
+			})
+
+			if (!success) {
+				setLoading(false)
+			}
+		} catch (error) {
+			console.error('Subscription error:', error)
 			toast.error('Something went wrong. Please try again.')
-		} finally {
 			setLoading(false)
 		}
 	}
 
+	const handleCancel = () => {
+		setShowDialog(false)
+	}
+
+
+
+
+
+	const getButtonText = () => {
+		if (loading) return 'Redirecting...'
+		if (!plan.is_active) return 'Unavailable'
+		if (isCurrent) return 'Current Plan'
+		return 'Buy Plan'
+	}
+
 	return (
-		<div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 flex flex-col h-full">
-			<div className="mb-6">
-				<h2 className="text-xl font-bold text-gray-800 uppercase tracking-wide">
-					{plan.name}
-				</h2>
-				<div className="mt-4 flex items-baseline">
-					<span className="text-4xl font-extrabold text-gray-900">
-						₹{Math.floor(plan.amount / 100)}
-					</span>
-					<span className="ml-1 text-gray-500 text-sm">
-						/{plan.interval}
-					</span>
+		<>
+			<div className="bg-white p-8 rounded-2xl shadow-xl border border-gray-100 flex flex-col h-full">
+				<div className="mb-6">
+					<div className='flex items-center justify-between'>
+						<h2 className="text-xl font-bold text-gray-800 uppercase tracking-wide">
+							{plan.name}
+						</h2>
+						{isCurrent && (
+							<span className='text-xs uppercase bg-blue-500/30 border-blue-500 border rounded-full px-2 py-1'>
+								current
+							</span>
+						)}
+					</div>
+					<div className="mt-4 flex items-baseline">
+						<span className="text-4xl font-extrabold text-gray-900">
+							₹{Math.floor(plan.amount / 100)}
+						</span>
+						<span className="ml-1 text-gray-500 text-sm">
+							/{plan.interval}
+						</span>
+					</div>
 				</div>
-			</div>
 
-			<ul className="space-y-4 mb-8 flex-grow text-gray-600">
-				<li className="flex items-center gap-2">
-					<CheckIcon />
-					Access to all features
-				</li>
-				<li className="flex items-center gap-2">
-					<CheckIcon />
-					Priority Support
-				</li>
-			</ul>
+				<ul className="space-y-4 mb-8 flex-grow text-gray-600">
+					{plan.features?.map((f, i) => (
+						<li key={i} className="flex items-center gap-2">
+							<Check size={18} className='text-green-400' />
+							{f}
+						</li>
+					))}
+				</ul>
 
-			<button
-				onClick={handleSubscribe}
-				disabled={loading || !plan.is_active}
-				className={`w-full py-3 px-4 rounded-lg font-semibold shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed ${plan.name.toLowerCase().includes('pro')
+				<button
+					onClick={handleClick}
+					disabled={loading || !plan.is_active || isCurrent}
+					className={`w-full py-3 px-4 rounded-lg font-semibold shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed ${plan.name.toLowerCase().includes('pro')
 						? 'bg-blue-600 text-white hover:bg-blue-700'
 						: 'bg-gray-100 text-gray-800 hover:bg-gray-200'
-					}`}
-			>
-				{loading ? 'Redirecting...' : !plan.is_active ? 'Unavailable' : 'Get Started'}
-			</button>
-		</div>
+						}`}
+				>
+					{getButtonText()}
+				</button>
+			</div>
+
+			<SubscriptionConfirmDialog
+				open={showDialog}
+				onOpenChange={setShowDialog}
+				plan={plan}
+				loading={loading}
+				onConfirm={handleConfirm}
+				onCancel={handleCancel}
+			/>
+		</>
 	)
 }
 
 export default PlanCard
 
-function CheckIcon() {
-	return (
-		<svg className="w-5 h-5 text-green-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-			<path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
-		</svg>
-	)
-}
+

@@ -7,7 +7,7 @@ import Razorpay from 'razorpay'
  * Never import this in client components or browser code.
  *
  * Requires:
- *   RAZORPAY_KEY_ID     — from Razorpay dashboard (test or live)
+ *   NEXT_PUBLIC_RAZORPAY_KEY_ID     — from Razorpay dashboard (test or live)
  *   RAZORPAY_KEY_SECRET — from Razorpay dashboard (test or live)
  */
 
@@ -16,11 +16,11 @@ let razorpayInstance: Razorpay | null = null
 export function getRazorpay() {
 	if (razorpayInstance) return razorpayInstance
 
-	const keyId = process.env.RAZORPAY_KEY_ID
+	const keyId = process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID
 	const keySecret = process.env.RAZORPAY_KEY_SECRET
 
 	if (!keyId) {
-		throw new Error('Missing env: RAZORPAY_KEY_ID')
+		throw new Error('Missing env: NEXT_PUBLIC_RAZORPAY_KEY_ID')
 	}
 	if (!keySecret) {
 		throw new Error('Missing env: RAZORPAY_KEY_SECRET')

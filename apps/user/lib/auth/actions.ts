@@ -1,11 +1,12 @@
 'use server'
 
 import { redirect } from 'next/navigation'
-import { createClient } from '@myapp/supabase/server'
-import { loginSchema, signupSchema } from '@repo/validations'
+import { createClient } from '@workspace/supabase/server'
+import { loginSchema, signupSchema } from '@workspace/validations'
 
 /**
- * Auth Server Actions
+ * @file lib/auth/actions.ts
+ * @description Server actions for authentication (login/signup) with proper error handling and validation.
  *
  * Handles login and signup mutations from client form components.
  * Each action: validates FormData with Zod → calls Supabase Auth → redirects on success.

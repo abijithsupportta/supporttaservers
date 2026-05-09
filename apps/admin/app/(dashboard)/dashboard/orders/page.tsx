@@ -25,7 +25,7 @@ import OrdersTable from './OrdersTable';
 export default function OrdersPage() {
 	return (
 		<div>
-			<h3>Orders</h3>
+			<h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">Orders</h3>
 			<OrdersTable />
 		</div>
 	);

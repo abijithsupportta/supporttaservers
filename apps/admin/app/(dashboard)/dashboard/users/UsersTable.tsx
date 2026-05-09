@@ -54,7 +54,7 @@ export default async function UsersTable({ search = '', page = 1 }: UsersTablePr
 	return (
 		<div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
 
-			<div className="px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex justify-between items-center">
+			<div className="px-4 md:px-6 py-4 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
 				<div>
 					<h3 className="text-lg font-semibold text-gray-800">User Directory</h3>
 					<p className="text-xs text-gray-500">
@@ -65,7 +65,8 @@ export default async function UsersTable({ search = '', page = 1 }: UsersTablePr
 				<UsersSearchInput defaultValue={search} />
 			</div>
 
-			<div className="overflow-x-auto">
+			{/* Desktop Table View */}
+			<div className="hidden md:block overflow-x-auto">
 				<table className="w-full text-left border-collapse">
 					<thead>
 						<tr className="bg-gray-50/50 border-b border-gray-200">
@@ -127,8 +128,54 @@ export default async function UsersTable({ search = '', page = 1 }: UsersTablePr
 				</table>
 			</div>
 
+			{/* Mobile Card View */}
+			<div className="md:hidden divide-y divide-gray-100">
+				{profiles.map((profile) => (
+					<div key={profile.id} className="p-4 hover:bg-slate-50/50 transition-colors">
+						<div className="flex items-start gap-3 mb-3">
+							<div className="w-12 h-12 rounded-full bg-slate-900 flex items-center justify-center text-white text-sm font-bold ring-2 ring-white shadow-sm flex-shrink-0">
+								{profile.full_name?.split(' ').map((n: string) => n[0]).join('').toUpperCase() || '??'}
+							</div>
+							<div className="flex-1 min-w-0">
+								<div className="text-sm font-semibold text-gray-900 mb-1">{profile.full_name || 'Anonymous'}</div>
+								<div className="text-xs text-gray-500 font-medium mb-2 truncate">{profile.email}</div>
+								<div className="flex items-center gap-2 flex-wrap">
+									<span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-bold ${profile.role === 'admin'
+										? 'bg-indigo-50 text-indigo-700 border border-indigo-100'
+										: 'bg-slate-100 text-slate-700 border border-slate-200'
+										}`}>
+										{profile.role?.toUpperCase() || 'USER'}
+									</span>
+									<div className="flex items-center gap-1.5">
+										<div className={`w-2 h-2 rounded-full ${profile.is_active ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+										<span className="text-xs font-medium text-gray-700">
+											{profile.is_active ? 'Active' : 'Inactive'}
+										</span>
+									</div>
+								</div>
+							</div>
+						</div>
+						<div className="flex justify-between items-center pt-3 border-t border-gray-100">
+							<div className="text-xs text-gray-500">
+								Joined {new Date(profile.created_at).toLocaleDateString('en-IN', {
+									month: 'short',
+									day: 'numeric',
+									year: 'numeric',
+								})}
+							</div>
+							<Link
+								href={`/dashboard/users/${profile.id}`}
+								className="text-blue-600 hover:text-blue-700 font-semibold text-xs uppercase tracking-tight transition-colors"
+							>
+								Manage →
+							</Link>
+						</div>
+					</div>
+				))}
+			</div>
+
 			{profiles.length === 0 && (
-				<div className="p-20 text-center">
+				<div className="p-12 md:p-20 text-center">
 					<p className="text-gray-400 italic">
 						{search ? `No users found matching "${search}".` : 'No users found in the system.'}
 					</p>
@@ -136,11 +183,11 @@ export default async function UsersTable({ search = '', page = 1 }: UsersTablePr
 			)}
 
 			{totalPages > 1 && (
-				<div className="px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex items-center justify-between">
+				<div className="px-4 md:px-6 py-4 border-t border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row items-center justify-between gap-3">
 					<p className="text-xs text-gray-500">
 						Page {currentPage} of {totalPages}
 					</p>
-					<div className="flex items-center gap-2">
+					<div className="flex items-center gap-2 flex-wrap justify-center">
 						<PaginationLink href={buildHref(search, currentPage - 1)} disabled={currentPage <= 1} label="← Prev" />
 						{Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
 							<PaginationLink key={p} href={buildHref(search, p)} active={p === currentPage} label={String(p)} />

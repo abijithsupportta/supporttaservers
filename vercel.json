@@ -1,0 +1,7 @@
+{
+	"buildCommand": "npx turbo run build --filter=user",
+	"devCommand": "npx turbo run dev --filter=user",
+	"installCommand": "npm install",
+	"framework": null,
+	"outputDirectory": "apps/user/.next"
+}

@@ -20,7 +20,7 @@ import type { NextRequest } from 'next/server'
 
 const protectedRoutes = ['/dashboard', '/orders', '/payments', '/profile', '/plans']
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
 	const response = NextResponse.next()
 	const isLoginPage = request.nextUrl.pathname.startsWith('/login')
 

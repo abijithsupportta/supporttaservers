@@ -1,7 +1,8 @@
-import { createClient } from '@myapp/supabase/server'
+import { createClient } from '@workspace/supabase/server'
 
 /**
- * Plans Repository
+ * @file lib/plans/repository.ts
+ * @description Plans Repository with raw Supabase access.
  *
  * Raw Supabase access for the `plan` table.
  * All functions return the raw Supabase response and are called only
