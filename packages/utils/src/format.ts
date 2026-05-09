@@ -30,6 +30,23 @@ export const formatDate = (dateString: string | null | undefined) => {
 		day: 'numeric',
 	})
 }
+export const formatDateLong = (dateString: string | null | undefined) => {
+	if (!dateString) return 'N/A'
+	const date = new Date(dateString)
+	return date.toLocaleDateString('en-US', {
+		year: 'numeric',
+		month: 'long',
+		day: 'numeric',
+	})
+}
+export const formatTimeFromDate = (dateString: string | null | undefined) => {
+	if (!dateString) return 'N/A'
+	const date = new Date(dateString)
+	return date.toLocaleTimeString('en-US', {
+		hour: '2-digit',
+		minute: '2-digit',
+	})
+}
 
 /**
  * Formats a date string into a readable short date and time format (e.g., "Oct 12, 2023, 02:30 PM").

@@ -9,6 +9,7 @@ import { getAuthUser } from "../../lib/auth/server"
 import Logout from "@workspace/ui/my-components/Logout"
 import Link from "next/link";
 import DashboardNav from "../../components/DashboardNav";
+import MobileNav from "../../components/MobileNav";
 
 export default async function DashboardLayout({
 	children,
@@ -19,8 +20,9 @@ export default async function DashboardLayout({
 
 	return (
 		<div className="min-h-screen bg-gray-50 flex flex-col md:flex-row">
+			<MobileNav />
 			{/* Sidebar for Desktop */}
-			<aside className="w-full md:w-64 bg-white border-r border-gray-100 flex-shrink-0 md:min-h-screen flex flex-col">
+			<aside className="hidden md:flex w-64 bg-white border-r border-gray-100 flex-shrink-0 min-h-screen flex-col">
 				<div className="px-6 py-6 border-b border-gray-100">
 					<span className="text-xl font-bold text-blue-600 tracking-tight">SaaS App</span>
 				</div>
@@ -33,7 +35,7 @@ export default async function DashboardLayout({
 			<div className="flex-1 flex flex-col min-h-screen overflow-hidden">
 				{/* Topbar */}
 				<header className="bg-white border-b border-gray-100 px-6 py-4 flex justify-between md:justify-end items-center sticky top-0 z-10">
-					<div className="md:hidden">
+					<div className="md:hidden ml-12">
 						<span className="text-lg font-bold text-gray-800">SaaS App</span>
 					</div>
 					<div className="flex items-center gap-4">

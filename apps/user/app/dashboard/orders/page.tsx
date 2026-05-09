@@ -16,7 +16,7 @@ import { getAuthUser } from '../../../lib/auth/server'
 import { getOrdersByUserId } from '../../../lib/orders/service'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { formatAmount, formatDate, formatDateTime } from '@workspace/utils'
+import { formatAmount, formatDate, formatTimeFromDate, formatDateTime } from '@workspace/utils'
 
 
 
@@ -146,13 +146,7 @@ export default async function OrdersPage() {
 													{formatDate((order as any).created_at)}
 												</div>
 												<div className="text-xs text-gray-500">
-													{new Date((order as any).created_at || '').toLocaleTimeString(
-														'en-US',
-														{
-															hour: '2-digit',
-															minute: '2-digit',
-														}
-													)}
+													{formatTimeFromDate(order.created_at)}
 												</div>
 											</td>
 											<td className="px-6 py-4">

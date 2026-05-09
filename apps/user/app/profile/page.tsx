@@ -12,6 +12,7 @@ import { getAuthUser } from '../../lib/auth/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { formatDateLong } from '@workspace/utils'
 
 export default async function ProfilePage() {
 	const { user, supabase } = await getAuthUser()
@@ -91,11 +92,7 @@ export default async function ProfilePage() {
 								Member Since
 							</p>
 							<p className="text-gray-800 font-medium">
-								{new Date(user.created_at).toLocaleDateString('en-US', {
-									year: 'numeric',
-									month: 'long',
-									day: 'numeric',
-								})}
+								{formatDateLong(user.created_at)}
 							</p>
 						</div>
 					</div>

@@ -11,7 +11,7 @@ import { getPlanById } from '../../../../lib/plans/service'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Calendar, CreditCard } from 'lucide-react'
-import { formatAmount } from '@workspace/utils'
+import { formatAmount, formatDateLong } from '@workspace/utils'
 import { statusColors } from '@workspace/utils/styles'
 import CancelSubscriptionButton from '../../../../components/CancelSubscription'
 
@@ -59,26 +59,14 @@ export default async function SubscriptionDetailsPage(props: {
 
 	// Format dates
 	const periodStart = subscription.current_period_start
-		? new Date(subscription.current_period_start).toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric',
-		})
+		? formatDateLong(subscription.current_period_start)
 		: 'N/A'
 
 	const periodEnd = subscription.current_period_end
-		? new Date(subscription.current_period_end).toLocaleDateString('en-US', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric',
-		})
+		? formatDateLong(subscription.current_period_end)
 		: 'N/A'
 
-	const createdAt = new Date(subscription.created_at).toLocaleDateString('en-US', {
-		year: 'numeric',
-		month: 'long',
-		day: 'numeric',
-	})
+	const createdAt = formatDateLong(subscription.created_at)
 
 	const isActive = subscription.status === 'active'
 
