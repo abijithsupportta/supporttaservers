@@ -28,6 +28,7 @@ import { getUserById } from '../../../../../lib/users/service';
 import { getSubscriptionByUserId } from '../../../../../lib/subscriptions/service';
 import { getOrders } from '../../../../../lib/orders/service';
 import ToggleUserActive from './ToggleUserActive';
+import { formatDateLong } from '@workspace/utils';
 
 /**
  * UserProfilePage — fetches user, subscription, and order data in parallel,
@@ -116,11 +117,7 @@ export default async function UserProfilePage({
 							<div>
 								<label className="text-xs text-gray-400 block mb-1">Joined</label>
 								<p className="text-sm font-semibold text-gray-800">
-									{new Date(profile.created_at).toLocaleDateString('en-IN', {
-										day: 'numeric',
-										month: 'long',
-										year: 'numeric',
-									})}
+									{formatDateLong(profile.created_at)}
 								</p>
 							</div>
 						</div>

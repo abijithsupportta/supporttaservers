@@ -22,12 +22,7 @@ import OrdersTable from './orders/OrdersTable';
 import StatCard from '../../../components/StatCard';
 import { getDashboardStats } from '../../../lib/dashboard/service';
 
-/** Tab definitions for the dashboard (currently unused in UI) */
-const TABS = [
-	{ key: 'overview', label: 'Overview' },
-	{ key: 'users', label: 'Users' },
-	{ key: 'subscriptions', label: 'Subscriptions' },
-]
+
 
 export default async function Dashboard({
 	searchParams,
@@ -37,8 +32,6 @@ export default async function Dashboard({
 	const resolvedSearchParams = await searchParams
 
 	const currentTab = (resolvedSearchParams.tab as string) || 'overview'
-	const search = (resolvedSearchParams.search as string) || ''
-	const page = parseInt((resolvedSearchParams.page as string) || '1', 10)
 
 	const statsResult = await getDashboardStats()
 	const stats = statsResult.success
@@ -69,21 +62,6 @@ export default async function Dashboard({
 				/>
 			</div>
 
-			{/* <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-xl w-fit">
-				{TABS.map((tab) => (
-					<Link
-						key={tab.key}
-						href={`/dashboard?tab=${tab.key}`}
-						className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${currentTab === tab.key
-								? 'bg-white text-gray-900 shadow-sm'
-								: 'text-gray-500 hover:text-gray-700'
-							}`}
-					>
-						{tab.label}
-					</Link>
-				))}
-			</div> */}
-
 			{currentTab === 'overview' && (
 				<div className="bg-white rounded-xl shadow-sm border border-gray-200">
 					<div className="p-6 border-b border-gray-100">
@@ -92,14 +70,6 @@ export default async function Dashboard({
 					<OrdersTable limit={5} />
 				</div>
 			)}
-
-			{/* {currentTab === 'users' && (
-				<UsersTable search={search} page={page} />
-			)}
-
-			{currentTab === 'subscriptions' && (
-				<SubscriptionsTable />
-			)} */}
 		</>
 	)
 }
